@@ -1,0 +1,46 @@
+# ── Homebrew ─────────────────────────────────────────────────
+if [[ -d /opt/homebrew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+  BREW_PREFIX=/opt/homebrew
+else
+  BREW_PREFIX=/usr/local
+fi
+
+# ── History ──────────────────────────────────────────────────
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+setopt SHARE_HISTORY
+setopt EXTENDED_HISTORY
+
+# ── Editor ───────────────────────────────────────────────────
+export EDITOR="nano"
+
+# ── pyenv ────────────────────────────────────────────────────
+# PATH handled in .zprofile; this sets up shell integration
+eval "$(pyenv init -)"
+
+# ── fnm (Node) ───────────────────────────────────────────────
+eval "$(fnm env --use-on-cd --shell zsh)"
+
+# ── direnv ───────────────────────────────────────────────────
+eval "$(direnv hook zsh)"
+
+# ── Prompt ───────────────────────────────────────────────────
+eval "$(starship init zsh)"
+
+# ── Navigation ───────────────────────────────────────────────
+eval "$(zoxide init zsh)"
+
+# ── Plugins ──────────────────────────────────────────────────
+source "${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+source "${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+
+# ── Aliases ──────────────────────────────────────────────────
+alias cat="bat"
+alias ls="eza --icons"
+alias ll="eza -la --icons --git"
+alias la="eza -la --icons --all"
+# zoxide: use `z <dir>` for smart navigation

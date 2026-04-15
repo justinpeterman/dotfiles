@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# JetBrains / WebStorm
+.idea/
+*.iml
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Env files
+.env
+.env.local
+
+# Vim
+*.swp
+*.swo
+
+# VS Code (if ever opened)
+.vscode/
+
+# Direnv
+.direnv/
+
+# Claude Code
+.claude/
