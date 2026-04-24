@@ -11,6 +11,8 @@ brew "pyenv"
 brew "direnv"
 brew "zsh-autosuggestions"
 brew "zsh-syntax-highlighting"
+brew "yt-dlp"
+brew "gh"
 
 # ── Apps ─────────────────────────────────────────────────────
 cask "claude-code"
