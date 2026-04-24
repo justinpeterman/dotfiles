@@ -35,6 +35,11 @@ defaults write com.apple.screencapture disable-shadow -bool true
 defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true
 defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
 
+# ── Hot Corners ──────────────────────────────────────────────
+# Bottom-left + Command → start screensaver (modifier 1048576 = ⌘)
+defaults write com.apple.dock wvous-bl-corner -int 5
+defaults write com.apple.dock wvous-bl-modifier -int 1048576
+
 # ── Restart affected apps ────────────────────────────────────
 for app in Dock Finder SystemUIServer; do
   killall "$app" &>/dev/null || true
