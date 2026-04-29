@@ -13,6 +13,9 @@ brew "zsh-autosuggestions"
 brew "zsh-syntax-highlighting"
 brew "yt-dlp"
 brew "gh"
+brew "openjdk@21"
+brew "jenv"
+brew "gradle"
 
 # ── Apps ─────────────────────────────────────────────────────
 cask "claude-code"
