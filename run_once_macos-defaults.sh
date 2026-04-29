@@ -34,6 +34,7 @@ defaults write com.apple.screencapture disable-shadow -bool true
 # ── Trackpad ─────────────────────────────────────────────────
 defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true
 defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
+defaults write NSGlobalDomain com.apple.swipescrolldirection -bool false
 
 # ── Hot Corners ──────────────────────────────────────────────
 # Bottom-left + Command → start screensaver (modifier 1048576 = ⌘)
