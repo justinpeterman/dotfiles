@@ -41,6 +41,11 @@ defaults write NSGlobalDomain com.apple.swipescrolldirection -bool false
 defaults write com.apple.dock wvous-bl-corner -int 5
 defaults write com.apple.dock wvous-bl-modifier -int 1048576
 
+# ── Security ─────────────────────────────────────────────────
+# Require password immediately after sleep or screensaver begins (0s grace)
+defaults write com.apple.screensaver askForPassword -int 1
+defaults write com.apple.screensaver askForPasswordDelay -int 0
+
 # ── Restart affected apps ────────────────────────────────────
 for app in Dock Finder SystemUIServer; do
   killall "$app" &>/dev/null || true
