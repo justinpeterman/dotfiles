@@ -26,6 +26,7 @@ cask "spotify"
 cask "iterm2"
 cask "raycast"
 cask "webstorm"
+cask "docker-desktop"
 
 # ── Fonts ────────────────────────────────────────────────────
 cask "font-jetbrains-mono-nerd-font"
