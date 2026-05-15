@@ -2,6 +2,14 @@
   "includeCoAuthoredBy": false,
   "model": "opus",
   "effortLevel": "xhigh",
+  "permissions": {
+    "allow": [
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm test)"
+    ]
+  },
   "hooks": {
     "Notification": [
       {
