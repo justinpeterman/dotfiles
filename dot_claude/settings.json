@@ -1,0 +1,12 @@
+{
+  "includeCoAuthoredBy": false,
+  "model": "opus",
+  "effortLevel": "xhigh",
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [{ "type": "command", "command": "afplay /System/Library/Sounds/Glass.aiff" }]
+      }
+    ]
+  }
+}

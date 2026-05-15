@@ -18,6 +18,8 @@ This installs Xcode CLI tools → Homebrew → chezmoi, then applies all dotfile
 dotfiles/
 ├── bootstrap.sh                        # Run once on a new machine
 ├── Brewfile                            # Source of truth for all packages/apps
+├── dot_claude/
+│   └── settings.json                   # → ~/.claude/settings.json (Claude Code config)
 ├── dot_gitconfig.tmpl                  # → ~/.gitconfig (templated with name/email)
 ├── dot_gitignore_global                # → ~/.gitignore_global
 ├── dot_zprofile                        # → ~/.zprofile (PATH setup for login shells)
