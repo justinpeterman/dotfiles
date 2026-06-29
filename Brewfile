@@ -29,6 +29,7 @@ cask "iterm2"
 cask "raycast"
 cask "webstorm"
 cask "docker-desktop"
+cask "zoom"
 
 # ── Mac App Store ────────────────────────────────────────────
 brew "mas"

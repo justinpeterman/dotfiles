@@ -1,7 +1,5 @@
 {
   "includeCoAuthoredBy": false,
-  "model": "opus",
-  "effortLevel": "xhigh",
   "permissions": {
     "allow": [
       "Bash(pnpm typecheck *)",
@@ -10,11 +8,24 @@
       "Bash(pnpm test)"
     ]
   },
+  "model": "opus",
   "hooks": {
     "Notification": [
       {
-        "hooks": [{ "type": "command", "command": "afplay /System/Library/Sounds/Glass.aiff" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "afplay /System/Library/Sounds/Glass.aiff"
+          }
+        ]
       }
     ]
-  }
+  },
+  "effortLevel": "high",
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "voiceEnabled": true
 }
