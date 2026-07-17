@@ -2,3 +2,12 @@ README.md
 bootstrap.sh
 .git
 .gitignore
+.idea
+
+{{ if ne .machine_type "personal" -}}
+Brewfile.personal
+{{ end -}}
+{{ if ne .machine_type "server" -}}
+Brewfile.server
+macos-defaults-server.sh
+{{ end -}}

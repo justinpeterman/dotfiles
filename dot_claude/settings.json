@@ -27,5 +27,6 @@
     "mode": "hold"
   },
   "skipDangerousModePermissionPrompt": true,
+  "agentPushNotifEnabled": true,
   "voiceEnabled": true
 }

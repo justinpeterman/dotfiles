@@ -1,4 +1,4 @@
-# ── CLI tools ────────────────────────────────────────────────
+# ── Shared CLI tools ───────────────────
 brew "git"
 brew "chezmoi"
 brew "starship"
@@ -11,29 +11,16 @@ brew "pyenv"
 brew "direnv"
 brew "zsh-autosuggestions"
 brew "zsh-syntax-highlighting"
-brew "yt-dlp"
 brew "gh"
-brew "railway"
-brew "cocoapods"
 brew "openjdk@21"
 brew "jenv"
 brew "gradle"
 
-# ── Apps ─────────────────────────────────────────────────────
-cask "claude-code"
-cask "1password"
-cask "google-chrome"
-cask "firefox"
-cask "spotify"
-cask "iterm2"
-cask "raycast"
-cask "webstorm"
-cask "docker-desktop"
-cask "zoom"
-
-# ── Mac App Store ────────────────────────────────────────────
-brew "mas"
-mas "Xcode", id: 497799835
-
-# ── Fonts ────────────────────────────────────────────────────
+# ── Shared Fonts ────────────────────────────────────────────────────
 cask "font-jetbrains-mono-nerd-font"
+
+# ── Shared Apps ─────────────────────────────────────────────────────
+cask "claude-code"
+cask "google-chrome"
+cask "iterm2"
+cask "tailscale-app"

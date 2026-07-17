@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
-# chezmoi re-runs this whenever Brewfile changes.
-# hash: {{ include "Brewfile" | sha256sum }}
+# chezmoi re-runs this whenever Brewfile or the active Brewfile.{{ .machine_type }} changes.
+# hash-shared: {{ include "Brewfile" | sha256sum }}
+# hash-machine: {{ if eq .machine_type "personal" }}{{ include "Brewfile.personal" | sha256sum }}{{ else if eq .machine_type "server" }}{{ include "Brewfile.server" | sha256sum }}{{ end }}
 set -euo pipefail
 
 echo "→ Running brew bundle..."
 brew bundle --file="{{ .chezmoi.sourceDir }}/Brewfile"
+{{ if eq .machine_type "personal" -}}
+brew bundle --file="{{ .chezmoi.sourceDir }}/Brewfile.personal"
+{{ else if eq .machine_type "server" -}}
+brew bundle --file="{{ .chezmoi.sourceDir }}/Brewfile.server"
+{{ end -}}
 echo "✓ brew bundle complete"

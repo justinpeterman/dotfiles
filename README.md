@@ -16,20 +16,39 @@ This installs Xcode CLI tools → Homebrew → chezmoi, then applies all dotfile
 
 ```
 dotfiles/
-├── bootstrap.sh                        # Run once on a new machine
-├── Brewfile                            # Source of truth for all packages/apps
+├── bootstrap.sh                              # Run once on a new machine
+├── Brewfile                                  # Shared essentials (personal + server)
+├── Brewfile.personal                         # Personal-only packages/apps
+├── Brewfile.server                           # Server-only packages
 ├── dot_claude/
-│   └── settings.json                   # → ~/.claude/settings.json (Claude Code config)
-├── dot_gitconfig.tmpl                  # → ~/.gitconfig (templated with name/email)
-├── dot_gitignore_global                # → ~/.gitignore_global
-├── dot_zprofile                        # → ~/.zprofile (PATH setup for login shells)
-├── dot_zshrc                           # → ~/.zshrc
+│   └── settings.json                         # → ~/.claude/settings.json (Claude Code config)
+├── dot_gitconfig.tmpl                        # → ~/.gitconfig (templated with name/email)
+├── dot_gitignore_global                      # → ~/.gitignore_global
+├── dot_zprofile                              # → ~/.zprofile (PATH setup for login shells)
+├── dot_zshrc                                 # → ~/.zshrc
 ├── private_dot_ssh/
-│   └── config                          # → ~/.ssh/config (GitHub SSH)
-├── run_onchange_brew-bundle.sh.tmpl    # Reruns brew bundle when Brewfile changes
-├── run_once_macos-defaults.sh          # Applied once per machine
+│   └── config                                # → ~/.ssh/config (GitHub SSH)
+├── run_onchange_brew-bundle.sh.tmpl          # Reruns brew bundle when Brewfile* changes
+├── run_once_macos-defaults.sh                # Applied once, shared across machines
+├── run_once_after_macos-defaults-server.sh   # Applied once, server-only (after the shared script)
 └── .chezmoiignore
 ```
+
+## Multi-machine setup
+
+`chezmoi init` prompts for a `machine_type` (`personal` or `server`), stored in
+`~/.config/chezmoi/chezmoi.toml`. This single repo drives both machines:
+
+- `.chezmoiignore` conditionally excludes `Brewfile.personal` on servers and
+  `Brewfile.server` / `run_once_after_macos-defaults-server.sh` on personal machines,
+  so the "wrong" machine-specific files are never applied.
+- `run_onchange_brew-bundle.sh.tmpl` always runs the shared `Brewfile`, plus
+  whichever of `Brewfile.personal` / `Brewfile.server` applies.
+- Everything else (macOS defaults, shell config, SSH config, Claude settings) is shared
+  and untemplated — it applies identically everywhere.
+
+To change an existing machine's type, edit `machine_type` directly in
+`~/.config/chezmoi/chezmoi.toml`, or re-run `chezmoi init` to be re-prompted.
 
 ## Post-bootstrap checklist
 
@@ -40,7 +59,6 @@ After running bootstrap on a new machine:
 - [ ] **Set Node version** — `fnm install --lts && fnm use lts-latest`
 - [ ] **Set Python version** — `pyenv install 3.x.x && pyenv global 3.x.x`
 - [ ] **Configure iTerm2** — set font to JetBrains Mono Nerd Font, configure profile as needed
-- [ ] **Sign in to Raycast** — restore extensions and snippets via Raycast cloud sync
 - [ ] **Sign in to WebStorm** — restore settings via JetBrains account sync
 
 ## Daily workflow
