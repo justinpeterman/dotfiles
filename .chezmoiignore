@@ -4,10 +4,12 @@ bootstrap.sh
 .gitignore
 .idea
 
-{{ if ne .machine_type "personal" -}}
+# Brewfiles are read from the chezmoi source dir by run_onchange_brew-bundle,
+# so they must never be applied into $HOME.
+Brewfile
 Brewfile.personal
-{{ end -}}
-{{ if ne .machine_type "server" -}}
 Brewfile.server
+
+{{ if ne .machine_type "server" -}}
 macos-defaults-server.sh
 {{ end -}}

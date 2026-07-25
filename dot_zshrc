@@ -20,27 +20,27 @@ export EDITOR="nano"
 
 # ── pyenv ────────────────────────────────────────────────────
 # PATH handled in .zprofile; this sets up shell integration
-eval "$(pyenv init -)"
+command -v pyenv >/dev/null && eval "$(pyenv init -)"
 
 # ── fnm (Node) ───────────────────────────────────────────────
-eval "$(fnm env --use-on-cd --shell zsh)"
+command -v fnm >/dev/null && eval "$(fnm env --use-on-cd --shell zsh)"
 
 # ── direnv ───────────────────────────────────────────────────
-eval "$(direnv hook zsh)"
+command -v direnv >/dev/null && eval "$(direnv hook zsh)"
 
 # ── Prompt ───────────────────────────────────────────────────
-eval "$(starship init zsh)"
+command -v starship >/dev/null && eval "$(starship init zsh)"
 
 # ── Navigation ───────────────────────────────────────────────
-eval "$(zoxide init zsh)"
+command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
 
 # ── Plugins ──────────────────────────────────────────────────
-source "${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
-source "${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+[[ -r "${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] && source "${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+[[ -r "${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] && source "${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 
 # ── jenv (Java) ──────────────────────────────────────────────
-export PATH="$HOME/.jenv/bin:$PATH"
-eval "$(jenv init -)"
+[[ -d "$HOME/.jenv/bin" ]] && export PATH="$HOME/.jenv/bin:$PATH"
+command -v jenv >/dev/null && eval "$(jenv init -)"
 
 # ── Aliases ──────────────────────────────────────────────────
 alias cat="bat"

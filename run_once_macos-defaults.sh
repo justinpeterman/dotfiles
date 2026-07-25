@@ -34,6 +34,8 @@ defaults write com.apple.screencapture disable-shadow -bool true
 # ── Trackpad ─────────────────────────────────────────────────
 defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true
 defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
+defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+# NOTE: KeyRepeat/InitialKeyRepeat and some trackpad settings only take effect after logout.
 defaults write NSGlobalDomain com.apple.swipescrolldirection -bool false
 
 # ── Hot Corners ──────────────────────────────────────────────
@@ -43,8 +45,11 @@ defaults write com.apple.dock wvous-bl-modifier -int 1048576
 
 # ── Security ─────────────────────────────────────────────────
 # Require password immediately after sleep or screensaver begins (0s grace)
-defaults write com.apple.screensaver askForPassword -int 1
-defaults write com.apple.screensaver askForPasswordDelay -int 0
+# NOTE: `defaults write com.apple.screensaver askForPassword[Delay]` is silently
+# ignored on macOS 10.15+ (the setting moved to a protected/managed location).
+# Set "Require password immediately after sleep or screen saver" manually via
+# System Settings → Lock Screen, or with:
+#   sysadminctl -screenLock immediate -password <yourpassword>
 
 # ── Restart affected apps ────────────────────────────────────
 for app in Dock Finder SystemUIServer; do

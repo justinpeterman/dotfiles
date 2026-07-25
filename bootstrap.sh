@@ -15,11 +15,26 @@ if ! xcode-select -p &>/dev/null; then
   echo "→ Installing Xcode Command Line Tools..."
   xcode-select --install
   echo "  Waiting for installation to complete..."
-  until xcode-select -p &>/dev/null; do sleep 5; done
+  tries=0
+  until xcode-select -p &>/dev/null; do
+    sleep 5
+    tries=$((tries + 1))
+    if (( tries > 120 )); then
+      echo "  Timed out waiting for Xcode CLI tools. Finish the installer dialog and re-run." >&2
+      exit 1
+    fi
+  done
   echo "  Done."
 else
   echo "✓ Xcode CLI tools already installed"
 fi
+
+# ── Pre-authenticate sudo ────────────────────────────────────
+# Under `curl … | bash`, Homebrew's installer sets NONINTERACTIVE=1 and uses
+# `sudo -n`, which aborts on a fresh machine with no cached sudo timestamp.
+# Prime sudo now (prompts on the tty) and keep it alive for the whole run.
+sudo -v
+while true; do sudo -n true; sleep 60; kill -0 "$$" 2>/dev/null || exit; done 2>/dev/null &
 
 # ── Homebrew ─────────────────────────────────────────────────
 if ! command -v brew &>/dev/null; then

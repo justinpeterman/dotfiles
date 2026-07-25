@@ -1,5 +1,9 @@
+{{- $name := promptStringOnce . "name" "Full name" -}}
+{{- $email := promptStringOnce . "email" "Email address" -}}
+{{- $github := promptStringOnce . "github_user" "GitHub username" -}}
+{{- $machine := promptChoiceOnce . "machine_type" "Machine type" (list "personal" "server") -}}
 [data]
-  name = {{ promptString "Full name" | quote }}
-  email = {{ promptString "Email address" | quote }}
-  github_user = {{ promptString "GitHub username" | quote }}
-  machine_type = {{ promptChoice "Machine type" (list "personal" "server") | quote }}
+  name = {{ $name | quote }}
+  email = {{ $email | quote }}
+  github_user = {{ $github | quote }}
+  machine_type = {{ $machine | quote }}

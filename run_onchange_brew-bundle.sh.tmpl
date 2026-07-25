@@ -5,10 +5,10 @@
 set -euo pipefail
 
 echo "→ Running brew bundle..."
-brew bundle --file="{{ .chezmoi.sourceDir }}/Brewfile"
+brew bundle --file="{{ .chezmoi.sourceDir }}/Brewfile" || echo "⚠ brew bundle reported failures for the shared Brewfile (continuing)"
 {{ if eq .machine_type "personal" -}}
-brew bundle --file="{{ .chezmoi.sourceDir }}/Brewfile.personal"
+brew bundle --file="{{ .chezmoi.sourceDir }}/Brewfile.personal" || echo "⚠ brew bundle reported failures for Brewfile.personal (continuing)"
 {{ else if eq .machine_type "server" -}}
-brew bundle --file="{{ .chezmoi.sourceDir }}/Brewfile.server"
+brew bundle --file="{{ .chezmoi.sourceDir }}/Brewfile.server" || echo "⚠ brew bundle reported failures for Brewfile.server (continuing)"
 {{ end -}}
 echo "✓ brew bundle complete"

@@ -21,7 +21,7 @@ dotfiles/
 ├── Brewfile.personal                         # Personal-only packages/apps
 ├── Brewfile.server                           # Server-only packages
 ├── dot_claude/
-│   └── settings.json                         # → ~/.claude/settings.json (Claude Code config)
+│   └── settings.json.tmpl                    # → ~/.claude/settings.json (Claude Code config)
 ├── dot_gitconfig.tmpl                        # → ~/.gitconfig (templated with name/email)
 ├── dot_gitignore_global                      # → ~/.gitignore_global
 ├── dot_zprofile                              # → ~/.zprofile (PATH setup for login shells)

@@ -11,4 +11,5 @@ cask "zoom"
 
 # ── Mac App Store ────────────────────────────────────────────
 brew "mas"
+# Requires being signed into the Mac App Store first; brew bundle tolerates failure (see run_onchange_brew-bundle).
 mas "Xcode", id: 497799835

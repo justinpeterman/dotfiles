@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Generate the GitHub SSH key referenced by ~/.ssh/config and the gitconfig
+# `insteadOf` rewrite. Without this, `chezmoi update` and all GitHub clones fail.
+set -euo pipefail
+
+KEY="$HOME/.ssh/github_ed25519"
+
+if [[ ! -f "$KEY" ]]; then
+  echo "→ Generating GitHub SSH key ($KEY)..."
+  mkdir -p "$HOME/.ssh"
+  chmod 700 "$HOME/.ssh"
+  ssh-keygen -t ed25519 -f "$KEY" -N "" -C "{{ .email }}"
+  echo ""
+  echo "  ⚠ Add this public key to GitHub → https://github.com/settings/keys"
+  echo ""
+  cat "${KEY}.pub"
+  echo ""
+fi
