@@ -1,5 +1,6 @@
 # ── CLI tools ───────────────────────────────
-# brew "foo"
+brew "cloudflared"
+brew "webhook"
 
 # ── Apps ─────────────────────────────────────────────────────
 # cask "foo"
