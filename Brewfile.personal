@@ -4,6 +4,7 @@ brew "cocoapods"
 
 # ── Apps ─────────────────────────────────────────────────────
 cask "1password"
+cask "codex"
 cask "firefox"
 cask "spotify"
 cask "webstorm"
