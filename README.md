@@ -31,6 +31,7 @@ dotfiles/
 ├── run_onchange_brew-bundle.sh.tmpl          # Reruns brew bundle when Brewfile* changes
 ├── run_once_macos-defaults.sh                # Applied once, shared across machines
 ├── run_once_after_macos-defaults-server.sh   # Applied once, server-only (after the shared script)
+├── run_once_after_tailscale-cli.sh           # Installs the `tailscale` CLI wrapper after brew bundle
 └── .chezmoiignore
 ```
 
