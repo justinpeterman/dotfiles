@@ -40,8 +40,15 @@ sudo tailscaled install-system-daemon
 # listed (SIP blocks removing it directly), so we do NOT pre-block on mere
 # registration — that's a false positive once the daemon owns the socket. Instead
 # we run `up` and only surface recovery steps if it actually fails.
+# --advertise-tags=tag:server makes this a *tagged* node: tagged devices are
+# owned by the tailnet (not a user) and their node keys DO NOT EXPIRE, so an
+# always-on headless server never gets forced offline by the default 180-day key
+# rotation (which would require an interactive re-auth we can't do unattended).
+# Requires `tag:server` declared in the tailnet ACL `tagOwners`. Keeping the flag
+# here (not just a one-time console toggle) means a re-run can't silently revert
+# the node to a user-owned, expiring key.
 echo "→ Enabling Tailscale SSH..."
-if ! sudo tailscale up --ssh --accept-routes; then
+if ! sudo tailscale up --ssh --accept-routes --advertise-tags=tag:server; then
   if systemextensionsctl list 2>/dev/null | grep -q 'io.tailscale.ipn.macsys'; then
     cat <<'EOF'
 ⚠ `tailscale up` failed and a Tailscale GUI system extension
