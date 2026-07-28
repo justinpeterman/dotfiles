@@ -11,8 +11,9 @@
 # every app later scaffolded from the apps list. Per-app `pm2 save` (persisting the
 # real running process list) happens on each app's first deploy — see Phase 4 Step 11.
 #
-# Interactive: `pm2 startup` installs a launchd item via `sudo`, so this prompts for
-# a password. Don't background or pipe it unattended.
+# Non-interactive: no sudo. The boot hook is a user LaunchAgent we write directly to
+# ~/Library/LaunchAgents (a user-owned dir), sidestepping PM2's `pm2 startup`, which
+# refuses to run without root and then loads the agent into root's domain.
 # Re-run manually with: chezmoi state delete-bucket --bucket=scriptState
 
 set -euo pipefail
@@ -32,19 +33,58 @@ fi
 echo "→ Installing PM2 globally..."
 npm install -g pm2
 
-# Install the boot hook. On macOS, PM2 creates a *user* LaunchAgent at
-# ~/Library/LaunchAgents/pm2.<user>.plist — so it must be installed WITHOUT sudo, or
-# it loads into root's domain instead of the user's (macOS even warns: "Expecting a
-# LaunchDaemons path since the command was run as root"). We pass the platform
-# (`launchd`) explicitly so PM2 performs the install directly instead of printing a
-# sudo command to copy-paste. Resurrection then happens when the user session starts
-# at boot — which relies on auto-login being enabled (see Phase 1 of the guide).
-# Idempotent: unload any prior (possibly wrong-domain) registration first, ignoring
-# errors, then (re)install and load in the user domain.
-echo "→ Installing PM2 launchd startup hook (survives reboot; relies on auto-login)..."
+# Install the boot hook as a user LaunchAgent. We write the plist ourselves instead
+# of using `pm2 startup` because PM2 hard-requires root (uid 0): run without sudo it
+# only prints a command and exits 1; run WITH sudo it writes the plist but does its
+# final `launchctl load` as root, so the agent lands in root's domain, not yours
+# (macOS warns "Expecting a LaunchDaemons path since the command was run as root").
+# A user LaunchAgent lives in a user-owned dir and needs no root, so writing it
+# directly is both simpler and correct. The agent just runs `pm2 resurrect`, which
+# restarts whatever `pm2 save` last persisted — stable PM2 behavior. PATH is baked in
+# so keg-only node@22 and the pm2 shim resolve at boot. Resurrection fires when the
+# user session starts, which relies on auto-login being enabled (Phase 1 of the guide).
+echo "→ Installing PM2 launchd startup hook (user LaunchAgent; relies on auto-login)..."
 USER_NAME="$(id -un)"
-launchctl unload "$HOME/Library/LaunchAgents/pm2.$USER_NAME.plist" 2>/dev/null || true
-pm2 startup launchd -u "$USER_NAME" --hp "$HOME"
+UID_NUM="$(id -u)"
+PM2_BIN="$(command -v pm2)"
+PLIST="$HOME/Library/LaunchAgents/pm2.$USER_NAME.plist"
+mkdir -p "$HOME/Library/LaunchAgents"
+# A prior `sudo pm2 startup` can leave a root-owned plist here. The user owns the
+# directory (so can delete the file) but not the root-owned file itself (so can't
+# overwrite it in place). Remove then rewrite as the user. -f: no error if absent.
+rm -f "$PLIST"
+
+cat > "$PLIST" <<PLIST_EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key><string>pm2.$USER_NAME</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/sh</string>
+      <string>-c</string>
+      <string>exec "$PM2_BIN" resurrect</string>
+    </array>
+    <key>RunAtLoad</key><true/>
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key><string>$PATH</string>
+      <key>PM2_HOME</key><string>$HOME/.pm2</string>
+    </dict>
+    <key>StandardOutPath</key><string>$HOME/.pm2/pm2.launchd.out</string>
+    <key>StandardErrorPath</key><string>$HOME/.pm2/pm2.launchd.err</string>
+  </dict>
+</plist>
+PLIST_EOF
+
+# Load it into the user's GUI domain now (present because the server auto-logs in), so
+# it's active without waiting for a reboot. Boot out any prior copy first; fall back
+# to legacy load if bootstrap isn't available. Best-effort — the plist on disk is what
+# guarantees resurrection at the next boot regardless of whether this load lands.
+launchctl bootout "gui/$UID_NUM/pm2.$USER_NAME" 2>/dev/null || true
+launchctl bootstrap "gui/$UID_NUM" "$PLIST" 2>/dev/null \
+  || launchctl load -w "$PLIST" 2>/dev/null || true
 
 # Write an (initially empty) process dump so a reboot before the first deploy doesn't
 # leave the resurrect hook with nothing to restore. Each app's first deploy re-saves
@@ -55,10 +95,12 @@ pm2 save --force >/dev/null 2>&1 || true
 echo "→ Verifying..."
 node -v >/dev/null || { echo "✗ node is not runnable after install." >&2; exit 1; }
 pm2  -v >/dev/null || { echo "✗ pm2 is not runnable after install." >&2; exit 1; }
+[[ -f "$PLIST" ]] || { echo "✗ LaunchAgent plist was not written to $PLIST." >&2; exit 1; }
 if launchctl list 2>/dev/null | grep -qi 'pm2'; then
-  echo "✓ Node $(node -v), PM2 v$(pm2 -v) installed; launchd resurrect hook registered."
+  echo "✓ Node $(node -v), PM2 v$(pm2 -v) installed; resurrect LaunchAgent loaded."
 else
-  echo "✓ Node $(node -v), PM2 v$(pm2 -v) installed."
-  echo "  ⚠ Could not confirm the PM2 launchd item via 'launchctl list'. If apps don't"
-  echo "    come back after a reboot, re-run 'pm2 startup' and run the command it prints."
+  echo "✓ Node $(node -v), PM2 v$(pm2 -v) installed; resurrect LaunchAgent written to"
+  echo "  $PLIST."
+  echo "  ℹ Not loaded in this session, but it loads automatically at the next"
+  echo "    (auto-login) boot. The Phase 8 reboot test confirms resurrection end-to-end."
 fi
