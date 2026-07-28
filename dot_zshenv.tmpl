@@ -5,9 +5,11 @@
 # launchd resurrect hook. .zshrc (interactive) and .zprofile (login) do NOT run in
 # those contexts, so the server's Node runtime has to be made available here.
 #
-# node@22 is keg-only, so its bin dir isn't on the default PATH. Adding it makes
-# node / npm / the globally-installed pm2 resolvable for CI-over-SSH deploys and at
-# boot. Guarded so it's a no-op if the formula isn't installed yet.
-if [[ -d /opt/homebrew/opt/node@22/bin ]]; then
-  export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
-fi
+# Two dirs are needed, and neither is on the default non-interactive PATH:
+#   /opt/homebrew/bin              → the globally-installed `pm2` shim lives here
+#   /opt/homebrew/opt/node@22/bin  → keg-only node@22 (`node`, `npm`) — NOT linked
+#                                     into /opt/homebrew/bin, so it needs its own entry
+# Without both, a CI deploy over `ssh host 'activate-release.sh'` finds node/npm but
+# not pm2 (or vice-versa). Guarded so each is a no-op if not present.
+[[ -d /opt/homebrew/bin ]] && export PATH="/opt/homebrew/bin:$PATH"
+[[ -d /opt/homebrew/opt/node@22/bin ]] && export PATH="/opt/homebrew/opt/node@22/bin:$PATH"

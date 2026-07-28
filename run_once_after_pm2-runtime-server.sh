@@ -17,13 +17,12 @@
 
 set -euo pipefail
 
-# node@22 is keg-only (not linked into /opt/homebrew/bin). dot_zshenv adds this to
-# PATH for future shells, but the shell running THIS script (first `chezmoi apply`)
-# hasn't re-sourced it yet — so put it on PATH here too. This also ensures the PATH
-# `pm2 startup` captures for the launchd hook includes node/pm2.
-if [[ -d /opt/homebrew/opt/node@22/bin ]]; then
-  export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
-fi
+# dot_zshenv adds these to PATH for future shells, but the shell running THIS script
+# (first `chezmoi apply`) hasn't re-sourced it yet — so put them on PATH here too.
+# /opt/homebrew/bin has the pm2 shim; node@22 is keg-only and needs its own entry.
+# This also ensures the PATH `pm2 startup` captures for the launchd hook covers both.
+[[ -d /opt/homebrew/bin ]] && export PATH="/opt/homebrew/bin:$PATH"
+[[ -d /opt/homebrew/opt/node@22/bin ]] && export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
 
 if ! command -v node >/dev/null 2>&1; then
   echo "⚠ node not found — expected the 'node' formula from Brewfile.server (did brew bundle fail?). Skipping PM2 setup."
@@ -33,18 +32,19 @@ fi
 echo "→ Installing PM2 globally..."
 npm install -g pm2
 
-# `pm2 startup` detects the init system (launchd on macOS) and, run as a normal
-# user, prints the exact `sudo env PATH=… pm2 startup launchd -u <user> --hp <home>`
-# command that installs the boot hook rather than doing it directly. Grab that line
-# and run it. Idempotent — re-running just rewrites the launchd plist.
-echo "→ Installing PM2 launchd startup hook (survives reboot)..."
-STARTUP_CMD="$(pm2 startup 2>&1 | grep -E 'pm2 startup launchd' | tail -1 || true)"
-if [[ -z "$STARTUP_CMD" ]]; then
-  echo "✗ Could not determine the PM2 startup command from 'pm2 startup' output." >&2
-  echo "  Run 'pm2 startup' manually and follow its printed instructions." >&2
-  exit 1
-fi
-eval "$STARTUP_CMD"
+# Install the boot hook. On macOS, PM2 creates a *user* LaunchAgent at
+# ~/Library/LaunchAgents/pm2.<user>.plist — so it must be installed WITHOUT sudo, or
+# it loads into root's domain instead of the user's (macOS even warns: "Expecting a
+# LaunchDaemons path since the command was run as root"). We pass the platform
+# (`launchd`) explicitly so PM2 performs the install directly instead of printing a
+# sudo command to copy-paste. Resurrection then happens when the user session starts
+# at boot — which relies on auto-login being enabled (see Phase 1 of the guide).
+# Idempotent: unload any prior (possibly wrong-domain) registration first, ignoring
+# errors, then (re)install and load in the user domain.
+echo "→ Installing PM2 launchd startup hook (survives reboot; relies on auto-login)..."
+USER_NAME="$(id -un)"
+launchctl unload "$HOME/Library/LaunchAgents/pm2.$USER_NAME.plist" 2>/dev/null || true
+pm2 startup launchd -u "$USER_NAME" --hp "$HOME"
 
 # Write an (initially empty) process dump so a reboot before the first deploy doesn't
 # leave the resurrect hook with nothing to restore. Each app's first deploy re-saves
