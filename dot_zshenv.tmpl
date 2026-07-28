@@ -1,0 +1,13 @@
+{{- /* SERVER-only (gated off personal machines in .chezmoiignore, which use fnm). */ -}}
+# ~/.zshenv — sourced by EVERY zsh invocation, including non-interactive and
+# non-login shells. This is the only startup file that runs for `ssh host 'cmd'`
+# (the CI deploy path) and it feeds the PATH that `pm2 startup` captures for the
+# launchd resurrect hook. .zshrc (interactive) and .zprofile (login) do NOT run in
+# those contexts, so the server's Node runtime has to be made available here.
+#
+# node@22 is keg-only, so its bin dir isn't on the default PATH. Adding it makes
+# node / npm / the globally-installed pm2 resolvable for CI-over-SSH deploys and at
+# boot. Guarded so it's a no-op if the formula isn't installed yet.
+if [[ -d /opt/homebrew/opt/node@22/bin ]]; then
+  export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+fi

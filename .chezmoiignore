@@ -13,6 +13,10 @@ Brewfile.server
 {{ if ne .machine_type "server" -}}
 macos-defaults-server.sh
 tailscale-daemon-server.sh
+pm2-runtime-server.sh
+# Server-only Node PATH for non-interactive shells (CI deploy / launchd); personal
+# machines use fnm from .zshrc instead.
+.zshenv
 {{ end -}}
 {{ if ne .machine_type "personal" -}}
 # Tailscale GUI setup (standalone cask + CLI shim) only applies to personal
