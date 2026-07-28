@@ -1,6 +1,10 @@
 # ── CLI tools ───────────────────────────────
 brew "cloudflared"
 brew "webhook"
+# Open-source Tailscale (client + tailscaled). Installed as a launchd system
+# daemon by run_once_after_tailscale-daemon-server.sh so it starts before login
+# and at boot — essential for a headless server reached over Tailscale SSH.
+brew "tailscale"
 
 # ── Apps ─────────────────────────────────────────────────────
 # cask "foo"

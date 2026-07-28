@@ -23,4 +23,6 @@ cask "font-jetbrains-mono-nerd-font"
 cask "claude-code"
 cask "google-chrome"
 cask "iterm2"
-cask "tailscale-app"
+# Tailscale is intentionally NOT shared: servers use the open-source `tailscale`
+# formula (tailscaled system daemon, runs before login) — see Brewfile.server —
+# while personal machines use the `tailscale-app` GUI cask (Brewfile.personal).

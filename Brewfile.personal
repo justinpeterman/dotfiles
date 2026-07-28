@@ -9,6 +9,11 @@ cask "firefox"
 cask "spotify"
 cask "webstorm"
 cask "zoom"
+# Standalone Tailscale GUI (menu bar). Non-sandboxed, so it *can* run the SSH
+# server — but only within a logged-in GUI session. Servers use the tailscaled
+# formula instead (Brewfile.server). Never install the App Store build — it's
+# fully sandboxed and cannot run Tailscale SSH.
+cask "tailscale-app"
 
 # ── Mac App Store ────────────────────────────────────────────
 brew "mas"

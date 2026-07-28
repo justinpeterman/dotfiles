@@ -12,4 +12,11 @@ Brewfile.server
 
 {{ if ne .machine_type "server" -}}
 macos-defaults-server.sh
+tailscale-daemon-server.sh
+{{ end -}}
+{{ if ne .machine_type "personal" -}}
+# Tailscale GUI setup (standalone cask + CLI shim) only applies to personal
+# machines; servers run the tailscaled daemon instead (tailscale-daemon-server.sh).
+tailscale-cli.sh
+tailscale-ssh.sh
 {{ end -}}
