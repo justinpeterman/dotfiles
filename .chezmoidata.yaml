@@ -9,7 +9,13 @@
 #   name       unique app id; also the ~/apps/<name> dir and PM2 process name
 #   port       unique localhost port the app listens on (Cloudflare Tunnel targets it)
 #   entrypoint built JS entry PM2 runs, relative to the release dir (e.g. dist/index.js)
-#   hostname   public hostname routed to this app via Cloudflare Tunnel (used in #3)
+#   hostname   public hostname routed to this app via Cloudflare Tunnel
+
+# Name of the Cloudflare Tunnel that fronts this server (created once with
+# `cloudflared tunnel create <name>`). run_onchange_after_cloudflared-tunnel-server.sh
+# regenerates that tunnel's ingress + DNS routes from the apps list below.
+cloudflare_tunnel: mac-mini
+
 apps:
   - name: daybreaker
     port: 3001
