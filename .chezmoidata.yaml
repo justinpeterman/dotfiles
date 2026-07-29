@@ -1,0 +1,17 @@
+# Registry of apps deployed to this server. run_onchange_after_server-apps.sh.tmpl
+# loops over this list to scaffold each app's on-disk layout (releases/, shared/,
+# activate-release.sh, ecosystem.config.js). Adding an app = append a block here and
+# `chezmoi apply` — no new source files needed.
+#
+# All values here are NON-SECRET (they end up in a public repo). Real secrets go in
+# each app's shared/.env on the server, which the scaffold creates 600 and never
+# overwrites. Fields:
+#   name       unique app id; also the ~/apps/<name> dir and PM2 process name
+#   port       unique localhost port the app listens on (Cloudflare Tunnel targets it)
+#   entrypoint built JS entry PM2 runs, relative to the release dir (e.g. dist/index.js)
+#   hostname   public hostname routed to this app via Cloudflare Tunnel (used in #3)
+apps:
+  - name: daybreaker
+    port: 3001
+    entrypoint: dist/index.js
+    hostname: daybreaker.justinpeterman.com
