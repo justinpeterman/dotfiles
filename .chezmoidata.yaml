@@ -16,6 +16,12 @@
 # regenerates that tunnel's ingress + DNS routes from the apps list below.
 cloudflare_tunnel: mac-mini
 
+# OPTIONAL simple local backups (run_onchange_after_backups-server.sh.tmpl). Off by
+# default — flip to true to install a daily launchd agent that copies each app's
+# SQLite db + shared/.env + uploads into ~/backups/<app>/ (last 7 kept). Local only,
+# unencrypted; fine for hobby data on this single box. Revisit if data gets sensitive.
+backups_enabled: false
+
 apps:
   - name: daybreaker
     port: 3001

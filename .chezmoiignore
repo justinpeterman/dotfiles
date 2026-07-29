@@ -20,6 +20,10 @@ cloudflared-tunnel-server.sh
 # machines use fnm from .zshrc instead.
 .zshenv
 {{ end -}}
+{{ if or (ne .machine_type "server") (not .backups_enabled) -}}
+# Optional local backups: applied only on a server with backups_enabled: true.
+backups-server.sh
+{{ end -}}
 {{ if ne .machine_type "personal" -}}
 # Tailscale GUI setup (standalone cask + CLI shim) only applies to personal
 # machines; servers run the tailscaled daemon instead (tailscale-daemon-server.sh).
