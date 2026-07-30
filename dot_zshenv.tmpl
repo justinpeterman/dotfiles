@@ -13,3 +13,8 @@
 # not pm2 (or vice-versa). Guarded so each is a no-op if not present.
 [[ -d /opt/homebrew/bin ]] && export PATH="/opt/homebrew/bin:$PATH"
 [[ -d /opt/homebrew/opt/node@22/bin ]] && export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+
+# pnpm is provided by Corepack (see run_once_after_pnpm-corepack-server.sh), which
+# downloads the app-pinned version on first use. Disable the interactive confirm so an
+# unattended CI deploy (`ssh host 'activate-release.sh'`) can fetch it without hanging.
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
