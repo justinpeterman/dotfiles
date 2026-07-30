@@ -24,3 +24,10 @@ pm2-runtime-server.sh
 tailscale-cli.sh
 tailscale-ssh.sh
 {{ end -}}
+{{ if not (stat "/Applications/iTerm.app") -}}
+# iTerm2 font profile applies wherever iTerm is installed — including the mini
+# (machine_type=server but used interactively with a display) — and is skipped
+# on genuinely headless boxes with no iTerm. Gated on presence, not machine_type.
+Library/Application Support/iTerm2/DynamicProfiles/dotfiles.json
+iterm-font.sh
+{{ end -}}
