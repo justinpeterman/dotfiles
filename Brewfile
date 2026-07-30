@@ -25,6 +25,7 @@ cask "font-jetbrains-mono-nerd-font"
 
 # ── Shared Apps ─────────────────────────────────────────────────────
 cask "claude-code"
+cask "codex"
 cask "google-chrome"
 cask "iterm2"
 cask "visual-studio-code"
