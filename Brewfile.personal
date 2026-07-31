@@ -1,8 +1,4 @@
 # ── CLI tools ───────────────────────────────
-# fnm — Node version manager (per-project switching via .node-version / --use-on-cd),
-# wired up interactively in dot_zshrc. Personal-only: servers use a pinned brew node@22
-# for their non-interactive deploy runtime instead (see Brewfile.server / dot_zshenv).
-brew "fnm"
 brew "yt-dlp"
 brew "cocoapods"
 

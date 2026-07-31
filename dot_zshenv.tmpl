@@ -1,20 +1,5 @@
-{{- /* SERVER-only (gated off personal machines in .chezmoiignore, which use fnm). */ -}}
-# ~/.zshenv — sourced by EVERY zsh invocation, including non-interactive and
-# non-login shells. This is the only startup file that runs for `ssh host 'cmd'`
-# (the CI deploy path) and it feeds the PATH that `pm2 startup` captures for the
-# launchd resurrect hook. .zshrc (interactive) and .zprofile (login) do NOT run in
-# those contexts, so the server's Node runtime has to be made available here.
-#
-# Two dirs are needed, and neither is on the default non-interactive PATH:
-#   /opt/homebrew/bin              → the globally-installed `pm2` shim lives here
-#   /opt/homebrew/opt/node@22/bin  → keg-only node@22 (`node`, `npm`) — NOT linked
-#                                     into /opt/homebrew/bin, so it needs its own entry
-# Without both, a CI deploy over `ssh host 'activate-release.sh'` finds node/npm but
-# not pm2 (or vice-versa). Guarded so each is a no-op if not present.
+{{- /* SERVER-only: make Homebrew tools visible to non-interactive CI SSH. */ -}}
+# ~/.zshenv is sourced by `ssh host command`, unlike .zprofile/.zshrc.
+# Application runtimes are resolved explicitly through `mise exec`.
 [[ -d /opt/homebrew/bin ]] && export PATH="/opt/homebrew/bin:$PATH"
-[[ -d /opt/homebrew/opt/node@22/bin ]] && export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
-
-# pnpm is provided by Corepack (see run_once_after_pnpm-corepack-server.sh), which
-# downloads the app-pinned version on first use. Disable the interactive confirm so an
-# unattended CI deploy (`ssh host 'activate-release.sh'`) can fetch it without hanging.
-export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+[[ -d /usr/local/bin ]] && export PATH="/usr/local/bin:$PATH"

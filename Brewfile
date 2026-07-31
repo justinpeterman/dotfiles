@@ -6,11 +6,9 @@ brew "zoxide"
 brew "ripgrep"
 brew "eza"
 brew "bat"
-# fnm (Node version manager) is intentionally NOT shared — it lives in
-# Brewfile.personal. The server pins a single brew node@22 for its deploy runtime;
-# fnm there would be unused and, if a node were ever installed under it, would make
-# interactive shells diverge from what deploys (node@22) use. (pyenv/jenv stay shared
-# because nothing on the server's deploy path depends on Python/Java.)
+# One project tool-version manager for personal development, CI, and servers.
+# Repositories pin their exact runtimes in mise.toml.
+brew "mise"
 brew "pyenv"
 brew "direnv"
 brew "zsh-autosuggestions"

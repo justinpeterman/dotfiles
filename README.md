@@ -62,7 +62,7 @@ After running bootstrap on a new machine:
 
 - [ ] **Add SSH key to GitHub** — `cat ~/.ssh/github_ed25519.pub` then add at [github.com/settings/keys](https://github.com/settings/keys)
 - [ ] **Verify SSH auth** — `ssh -T git@github.com`
-- [ ] **Set Node version** — `fnm install --lts && fnm use lts-latest`
+- [ ] **Install project runtimes** — run `mise install` inside each project
 - [ ] **Set Python version** — `pyenv install 3.x.x && pyenv global 3.x.x`
 - [ ] **Configure iTerm2** — set font to JetBrains Mono Nerd Font, configure profile as needed
 - [ ] **Sign in to WebStorm** — restore settings via JetBrains account sync
@@ -113,7 +113,7 @@ chezmoi apply
 | Homebrew + Brewfile | Package manager, source of truth for installs |
 | starship | Shell prompt |
 | zoxide | Smart `cd` (`z`) |
-| fnm | Node version manager |
+| mise | Project runtime and CLI version manager |
 | pyenv | Python version manager |
 | direnv | Per-directory env vars |
 | ripgrep | Fast search |

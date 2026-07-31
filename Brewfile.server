@@ -1,13 +1,6 @@
 # ── CLI tools ───────────────────────────────
 brew "cloudflared"
 brew "webhook"
-# Node runtime for the PM2-managed apps. Pinned to the LTS line the deploy
-# workflow's setup-node targets, so runner-built native modules stay ABI-compatible
-# with what the Mini runs. Versioned formulae are KEG-ONLY (not linked into
-# /opt/homebrew/bin): node/npm live at /opt/homebrew/opt/node@22/bin, which
-# dot_zshenv puts on PATH for non-interactive SSH (CI deploy) + launchd. PM2 itself
-# is a global npm package installed by run_once_after_pm2-runtime-server.sh.
-brew "node@22"
 # Open-source Tailscale (client + tailscaled). Installed as a launchd system
 # daemon by run_once_after_tailscale-daemon-server.sh so it starts before login
 # and at boot — essential for a headless server reached over Tailscale SSH.
