@@ -1,20 +1,28 @@
 #!/usr/bin/env bash
 
-# SERVER-only (gated off personal machines in .chezmoiignore). Syncs the
-# hand-maintained Cloudflare Tunnel config into the location the *system* daemon
-# reads, then restarts the tunnel.
+# SERVER-only (gated off personal machines in .chezmoiignore). Owns the whole
+# server side of the Cloudflare Tunnel:
+#   1. syncs the hand-maintained config.yml into the location the *system* daemon
+#      reads (/etc/cloudflared),
+#   2. owns the launchd plist that runs that daemon, and
+#   3. restarts the daemon and VERIFIES the tunnel actually reached Cloudflare's
+#      edge before declaring success.
 #
-# Why /etc/cloudflared: the launchd plist (/Library/LaunchDaemons/
-# com.cloudflare.cloudflared.plist, written by `cloudflared service install`)
-# runs `/opt/homebrew/bin/cloudflared` with NO --config, as root. cloudflared's
-# default config search uses root's HOME (/var/root), so it never sees the user's
-# ~/.cloudflared/config.yml — it falls through to /etc/cloudflared/config.yml.
-# The credentials-file is referenced by absolute path, so only config.yml needs
-# to live under /etc; cert.pem and the tunnel .json stay in ~/.cloudflared.
+# Why this script owns the plist (it used to trust `cloudflared service install`):
+# that installer wrote a plist whose ProgramArguments were just the binary path
+# with NO subcommand. Bare `cloudflared` prints usage and exits, so launchd
+# crash-looped it every few seconds (ThrottleInterval) and the tunnel never
+# connected — Cloudflare's edge then returns HTTP 530 for every routed hostname
+# while the origin app is perfectly healthy. We now write the plist ourselves
+# with an explicit `tunnel --config /etc/cloudflared/config.yml run`, so the
+# daemon actually runs the tunnel and reads the config we sync to /etc. The
+# credentials-file is referenced by absolute path inside config.yml, so cert.pem
+# and the tunnel .json can stay in ~/.cloudflared.
 #
 # chezmoi re-runs this whenever config.yml changes, because its hash is embedded
 # below — so editing ~/.cloudflared/config.yml and running `chezmoi apply` is all
-# it takes to push a new tunnel route (no more manual cp + kickstart).
+# it takes to push a new tunnel route. Changing the plist body below re-runs the
+# script on its own (run_onchange hashes this rendered file).
 # config-hash: {{ if stat (joinPath .chezmoi.homeDir ".cloudflared/config.yml") }}{{ include (joinPath .chezmoi.homeDir ".cloudflared/config.yml") | sha256sum }}{{ end }}
 #
 # Re-run manually with: chezmoi state delete-bucket --bucket=scriptState
@@ -23,6 +31,9 @@ set -euo pipefail
 
 SRC="{{ .chezmoi.homeDir }}/.cloudflared/config.yml"
 DST="/etc/cloudflared/config.yml"
+PLIST_DST="/Library/LaunchDaemons/com.cloudflare.cloudflared.plist"
+DAEMON_TARGET="system/com.cloudflare.cloudflared"
+CLOUDFLARED_BIN="/opt/homebrew/bin/cloudflared"
 
 if ! command -v cloudflared >/dev/null 2>&1; then
   echo "⚠ cloudflared not found — expected the 'cloudflared' formula from Brewfile.server. Skipping."
@@ -37,20 +48,129 @@ if [[ ! -f "$SRC" ]]; then
   exit 0
 fi
 
+# The tunnel id drives the post-restart health check. It is required for a usable
+# config, so a missing id is a real misconfiguration — fail loud rather than skip.
+TUNNEL_ID="$(awk '/^[[:space:]]*tunnel:/ { print $2; exit }' "$SRC")"
+TUNNEL_ID="${TUNNEL_ID#[\"\']}"; TUNNEL_ID="${TUNNEL_ID%[\"\']}"  # tolerate a quoted value
+if [[ -z "$TUNNEL_ID" ]]; then
+  echo "✗ no 'tunnel:' id found in $SRC — cannot run or verify the tunnel." >&2
+  exit 1
+fi
+
 echo "→ Ensuring /etc/cloudflared exists..."
 sudo mkdir -p /etc/cloudflared
 
-# Only copy + restart when the installed copy actually differs. run_onchange
-# already gates on the config hash, but this keeps a manual re-run (state
-# delete-bucket) from needlessly bouncing the tunnel when nothing changed.
+# --- 1. Sync config.yml to the location the system daemon reads ---------------
+config_changed=0
 if sudo cmp -s "$SRC" "$DST"; then
-  echo "✓ /etc/cloudflared/config.yml already up to date; not restarting tunnel."
+  echo "✓ $DST already up to date."
+else
+  echo "→ Syncing config.yml to $DST..."
+  sudo cp "$SRC" "$DST"
+  config_changed=1
+fi
+
+# --- 2. Own the launchd plist -------------------------------------------------
+# Written to a temp file, linted, then compared so we only touch the installed
+# plist (and reload the daemon) when the desired content actually differs.
+desired_plist="$(mktemp "${TMPDIR:-/tmp}/com.cloudflare.cloudflared.XXXXXX")"
+trap 'rm -f "$desired_plist"' EXIT
+cat >"$desired_plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>Label</key>
+		<string>com.cloudflare.cloudflared</string>
+		<key>ProgramArguments</key>
+		<array>
+			<string>$CLOUDFLARED_BIN</string>
+			<string>tunnel</string>
+			<string>--config</string>
+			<string>$DST</string>
+			<string>run</string>
+		</array>
+		<key>RunAtLoad</key>
+		<true/>
+		<key>StandardOutPath</key>
+		<string>/Library/Logs/com.cloudflare.cloudflared.out.log</string>
+		<key>StandardErrorPath</key>
+		<string>/Library/Logs/com.cloudflare.cloudflared.err.log</string>
+		<key>KeepAlive</key>
+		<true/>
+		<key>ThrottleInterval</key>
+		<integer>5</integer>
+	</dict>
+</plist>
+PLIST
+plutil -lint "$desired_plist" >/dev/null
+
+plist_changed=0
+if ! sudo cmp -s "$desired_plist" "$PLIST_DST"; then
+  echo "→ Installing launchd plist to $PLIST_DST..."
+  sudo install -m 0644 -o root -g wheel "$desired_plist" "$PLIST_DST"
+  plist_changed=1
+fi
+
+# --- 3. (Re)start the daemon at the least disruptive level needed --------------
+# A plist change requires a full bootout/bootstrap for launchd to pick up the new
+# ProgramArguments; a config-only change just needs the running process bounced.
+if (( plist_changed )); then
+  echo "→ Reloading system daemon (plist changed)..."
+  sudo launchctl bootout "$DAEMON_TARGET" 2>/dev/null || true
+  # bootout is asynchronous: bootstrap fails with "Input/output error" if the old
+  # job is still tearing down. Retry until launchd accepts the new plist, so the
+  # race can't leave the daemon unloaded (tunnel down) after we already booted it
+  # out. RunAtLoad then starts it.
+  bootstrapped=0
+  for _ in $(seq 1 10); do
+    if sudo launchctl bootstrap system "$PLIST_DST" 2>/dev/null; then
+      bootstrapped=1
+      break
+    fi
+    sleep 1
+  done
+  if (( ! bootstrapped )); then
+    echo "✗ launchctl bootstrap of $DAEMON_TARGET kept failing (daemon may be left unloaded)." >&2
+    echo "  Inspect: sudo launchctl print $DAEMON_TARGET" >&2
+    exit 1
+  fi
+elif (( config_changed )); then
+  echo "→ Restarting system daemon (config changed)..."
+  sudo launchctl kickstart -k "$DAEMON_TARGET"
+else
+  echo "✓ Config and plist unchanged; not restarting."
+fi
+
+# --- 4. Verify the tunnel actually connected to Cloudflare's edge --------------
+# This runs every apply, not just on change, so a silently crash-looping daemon
+# can never again masquerade as a healthy deploy. `cloudflared tunnel info` reads
+# ~/.cloudflared/cert.pem as the invoking (admin) user, so no sudo is needed.
+#
+# Readiness is a POSITIVE signal: the connections table prints its "CONNECTOR ID"
+# header only when at least one edge connection exists. Keying on the presence of
+# a connection (rather than the absence of a "no active connection" string) fails
+# safe — a future cloudflared rewording yields a loud false failure, never a
+# silent false success.
+#
+# Escape hatch: during a known Cloudflare-edge incident, an otherwise-unrelated
+# `chezmoi apply` would abort here. Set CLOUDFLARED_SKIP_EDGE_VERIFY=1 to sync the
+# config/plist without blocking the rest of the apply on edge connectivity.
+if [[ "${CLOUDFLARED_SKIP_EDGE_VERIFY:-0}" == "1" ]]; then
+  echo "⚠ CLOUDFLARED_SKIP_EDGE_VERIFY=1 — skipping edge-connection verification."
   exit 0
 fi
 
-echo "→ Syncing config.yml to $DST..."
-sudo cp "$SRC" "$DST"
+echo "→ Verifying tunnel $TUNNEL_ID reached Cloudflare's edge..."
+for _ in $(seq 1 15); do
+  if cloudflared tunnel info "$TUNNEL_ID" 2>/dev/null | grep -qi "CONNECTOR ID"; then
+    echo "✓ Tunnel $TUNNEL_ID is connected. Routes are live."
+    exit 0
+  fi
+  sleep 2
+done
 
-echo "→ Restarting the cloudflared system daemon..."
-sudo launchctl kickstart -k system/com.cloudflare.cloudflared
-echo "✓ Tunnel config synced and daemon restarted."
+echo "✗ Tunnel $TUNNEL_ID did not establish an edge connection after ~30s." >&2
+echo "  Inspect: sudo launchctl print $DAEMON_TARGET" >&2
+echo "  Logs:    tail -n 40 /Library/Logs/com.cloudflare.cloudflared.err.log" >&2
+exit 1
