@@ -14,6 +14,7 @@ Brewfile.server
 macos-defaults-server.sh
 tailscale-daemon-server.sh
 pm2-runtime-server.sh
+cloudflared-server.sh
 # Server-only Node PATH for non-interactive shells (CI deploy / launchd); personal
 # machines use fnm from .zshrc instead.
 .zshenv

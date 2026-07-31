@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+# SERVER-only (gated off personal machines in .chezmoiignore). Syncs the
+# hand-maintained Cloudflare Tunnel config into the location the *system* daemon
+# reads, then restarts the tunnel.
+#
+# Why /etc/cloudflared: the launchd plist (/Library/LaunchDaemons/
+# com.cloudflare.cloudflared.plist, written by `cloudflared service install`)
+# runs `/opt/homebrew/bin/cloudflared` with NO --config, as root. cloudflared's
+# default config search uses root's HOME (/var/root), so it never sees the user's
+# ~/.cloudflared/config.yml — it falls through to /etc/cloudflared/config.yml.
+# The credentials-file is referenced by absolute path, so only config.yml needs
+# to live under /etc; cert.pem and the tunnel .json stay in ~/.cloudflared.
+#
+# chezmoi re-runs this whenever config.yml changes, because its hash is embedded
+# below — so editing ~/.cloudflared/config.yml and running `chezmoi apply` is all
+# it takes to push a new tunnel route (no more manual cp + kickstart).
+# config-hash: {{ if stat (joinPath .chezmoi.homeDir ".cloudflared/config.yml") }}{{ include (joinPath .chezmoi.homeDir ".cloudflared/config.yml") | sha256sum }}{{ end }}
+#
+# Re-run manually with: chezmoi state delete-bucket --bucket=scriptState
+
+set -euo pipefail
+
+SRC="{{ .chezmoi.homeDir }}/.cloudflared/config.yml"
+DST="/etc/cloudflared/config.yml"
+
+if ! command -v cloudflared >/dev/null 2>&1; then
+  echo "⚠ cloudflared not found — expected the 'cloudflared' formula from Brewfile.server. Skipping."
+  exit 0
+fi
+
+# On a fresh server the hand-copied secrets (config.yml, cert.pem, tunnel .json)
+# may not be in place yet. Nothing to sync until config.yml exists — skip rather
+# than fail so the rest of `chezmoi apply` proceeds.
+if [[ ! -f "$SRC" ]]; then
+  echo "⚠ $SRC not found — copy the tunnel config/credentials into ~/.cloudflared first. Skipping."
+  exit 0
+fi
+
+echo "→ Ensuring /etc/cloudflared exists..."
+sudo mkdir -p /etc/cloudflared
+
+# Only copy + restart when the installed copy actually differs. run_onchange
+# already gates on the config hash, but this keeps a manual re-run (state
+# delete-bucket) from needlessly bouncing the tunnel when nothing changed.
+if sudo cmp -s "$SRC" "$DST"; then
+  echo "✓ /etc/cloudflared/config.yml already up to date; not restarting tunnel."
+  exit 0
+fi
+
+echo "→ Syncing config.yml to $DST..."
+sudo cp "$SRC" "$DST"
+
+echo "→ Restarting the cloudflared system daemon..."
+sudo launchctl kickstart -k system/com.cloudflare.cloudflared
+echo "✓ Tunnel config synced and daemon restarted."
