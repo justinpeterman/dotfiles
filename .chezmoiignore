@@ -13,17 +13,15 @@ Brewfile.server
 {{ if ne .machine_type "server" -}}
 macos-defaults-server.sh
 tailscale-daemon-server.sh
-pm2-runtime-server.sh
 cloudflared-server.sh
-# Server-only Node PATH for non-interactive shells (CI deploy / launchd); personal
-# machines use fnm from .zshrc instead.
+# Homebrew PATH for non-interactive CI SSH shells is server-only; personal
+# machines get their PATH from .zprofile/.zshrc.
 .zshenv
 {{ end -}}
 {{ if ne .machine_type "personal" -}}
-# Tailscale GUI setup (standalone cask + CLI shim) only applies to personal
-# machines; servers run the tailscaled daemon instead (tailscale-daemon-server.sh).
+# Tailscale GUI CLI shim only applies to personal machines; servers run the
+# tailscaled daemon instead (tailscale-daemon-server.sh).
 tailscale-cli.sh
-tailscale-ssh.sh
 {{ end -}}
 {{ if not (stat "/Applications/iTerm.app") -}}
 # iTerm2 font profile applies wherever iTerm is installed — including the mini
