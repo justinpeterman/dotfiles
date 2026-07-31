@@ -50,6 +50,8 @@ dotfiles/
   whichever of `Brewfile.personal` / `Brewfile.server` applies. Tailscale is the one app
   split by type: the `tailscale-app` GUI cask is personal-only, the `tailscale` (tailscaled)
   formula is server-only.
+- Server-only operational tools such as `logrotate` also live in
+  `Brewfile.server`; individual apps own their rotation policies and schedules.
 - Everything else (macOS defaults, shell config, SSH config, Claude settings) is shared
   and untemplated — it applies identically everywhere.
 
