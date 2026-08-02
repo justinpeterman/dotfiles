@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Ensures Claude Code marketplaces + plugins are present on every machine.
+# run_onchange: edit the MARKETPLACES/PLUGINS lists to re-trigger on next apply.
+# Runs `after` file apply so the brew-bundled `claude` CLI is already installed.
+# Note: this installs but does NOT enable plugins — enabling is a per-machine
+# preference toggle. To auto-enable, add `claude plugin enable <id>` below.
+set -euo pipefail
+
+# Non-interactive apply (esp. server SSH) may not have Homebrew on PATH yet.
+if [ -x /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+if ! command -v claude >/dev/null 2>&1; then
+  echo "⚠ claude CLI not found on PATH; skipping plugin install"
+  exit 0
+fi
+
+# GitHub sources to register as marketplaces.
+MARKETPLACES=(
+  "openai/codex-plugin-cc"
+)
+# plugin@marketplace ids to install at user scope.
+PLUGINS=(
+  "codex@openai-codex"
+)
+
+echo "→ Ensuring Claude Code marketplaces..."
+markets="$(claude plugin marketplace list 2>/dev/null || true)"
+for src in "${MARKETPLACES[@]}"; do
+  if printf '%s' "$markets" | grep -qF "$src"; then
+    echo "  ✓ marketplace already present: $src"
+  else
+    echo "  + adding marketplace: $src"
+    claude plugin marketplace add "$src" || echo "  ⚠ failed to add $src (continuing)"
+  fi
+done
+
+echo "→ Ensuring Claude Code plugins..."
+installed="$(claude plugin list 2>/dev/null || true)"
+for p in "${PLUGINS[@]}"; do
+  if printf '%s' "$installed" | grep -qF "$p"; then
+    echo "  ✓ plugin already installed: $p"
+  else
+    echo "  + installing plugin: $p"
+    claude plugin install "$p" --scope user || echo "  ⚠ failed to install $p (continuing)"
+  fi
+done
+
+echo "✓ Claude Code plugins ensured"

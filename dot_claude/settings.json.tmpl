@@ -28,5 +28,10 @@
   },
   "skipDangerousModePermissionPrompt": {{ if eq .machine_type "server" }}false{{ else }}true{{ end }},
   "agentPushNotifEnabled": true,
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "statusLine": {
+    "type": "command",
+    "command": "/opt/homebrew/bin/python3 {{ .chezmoi.homeDir }}/.claude/statusline.py",
+    "padding": 0
+  }
 }
