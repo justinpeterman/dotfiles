@@ -30,4 +30,6 @@ __pycache__/
 .direnv/
 
 # Claude Code
-.claude/
+# Per Anthropic guidance: personal overrides stay local; .claude/settings.json
+# and project skills/commands/agents are committed and shared with the repo.
+.claude/settings.local.json
