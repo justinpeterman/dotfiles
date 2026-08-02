@@ -2,8 +2,7 @@
 # Ensures Claude Code marketplaces + plugins are present on every machine.
 # run_onchange: edit the MARKETPLACES/PLUGINS lists to re-trigger on next apply.
 # Runs `after` file apply so the brew-bundled `claude` CLI is already installed.
-# Note: this installs but does NOT enable plugins — enabling is a per-machine
-# preference toggle. To auto-enable, add `claude plugin enable <id>` below.
+# Installs AND enables each plugin at user scope.
 set -euo pipefail
 
 # Non-interactive apply (esp. server SSH) may not have Homebrew on PATH yet.
@@ -36,7 +35,7 @@ for src in "${MARKETPLACES[@]}"; do
   fi
 done
 
-echo "→ Ensuring Claude Code plugins..."
+echo "→ Ensuring Claude Code plugins (installed + enabled)..."
 installed="$(claude plugin list 2>/dev/null || true)"
 for p in "${PLUGINS[@]}"; do
   if printf '%s' "$installed" | grep -qF "$p"; then
@@ -45,6 +44,8 @@ for p in "${PLUGINS[@]}"; do
     echo "  + installing plugin: $p"
     claude plugin install "$p" --scope user || echo "  ⚠ failed to install $p (continuing)"
   fi
+  echo "  → enabling: $p"
+  claude plugin enable "$p" --scope user || echo "  ⚠ failed to enable $p (continuing)"
 done
 
 echo "✓ Claude Code plugins ensured"
