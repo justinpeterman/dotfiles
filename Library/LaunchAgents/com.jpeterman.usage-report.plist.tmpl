@@ -1,0 +1,30 @@
+{{- $brew := (eq .chezmoi.arch "arm64") | ternary "/opt/homebrew" "/usr/local" -}}
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jpeterman.usage-report</string>
+
+    <!-- Hourly Claude+Codex usage snapshot. StartInterval fires only while awake;
+         a fire missed during sleep runs once on wake (good for the server box). -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ $brew }}/bin/python3</string>
+        <string>{{ .chezmoi.homeDir }}/.claude/usage-report.py</string>
+        <string>--quiet</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
+    <!-- Also run once shortly after login so the log isn't empty on a fresh boot. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>{{ .chezmoi.homeDir }}/.claude/usage-report.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ .chezmoi.homeDir }}/.claude/usage-report.launchd.log</string>
+</dict>
+</plist>

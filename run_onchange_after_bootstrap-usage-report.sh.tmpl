@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# (Re)load the usage-report LaunchAgent whenever its plist changes.
+#
+# chezmoi only *copies* the plist into ~/Library/LaunchAgents; it does not register
+# it with launchd, so RunAtLoad and the hourly schedule wouldn't take effect until a
+# later login, and plist edits would never reload. The hash line below makes chezmoi
+# re-run this script whenever the plist content changes.
+#
+# plist hash: {{ include "Library/LaunchAgents/com.jpeterman.usage-report.plist.tmpl" | sha256sum }}
+set -euo pipefail
+
+LABEL="com.jpeterman.usage-report"
+PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
+DOMAIN="gui/$(id -u)"
+
+[ -f "$PLIST" ] || { echo "usage-report: plist not found at $PLIST" >&2; exit 0; }
+
+# bootout any existing instance so we reload cleanly (ignore "not loaded")
+launchctl bootout "${DOMAIN}/${LABEL}" 2>/dev/null || true
+
+if launchctl bootstrap "$DOMAIN" "$PLIST" 2>/dev/null; then
+    launchctl enable "${DOMAIN}/${LABEL}" 2>/dev/null || true
+    echo "usage-report: LaunchAgent (re)loaded"
+else
+    echo "usage-report: launchctl bootstrap failed (agent left unloaded)" >&2
+fi

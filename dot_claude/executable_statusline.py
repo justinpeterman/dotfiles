@@ -1,13 +1,25 @@
 #!/opt/homebrew/bin/python3
 """Claude Code status line.
 
-Renders:  daybreaker ⎇ main · Opus 4.8 · 5h 30% · wk 62% · ctx 45% · codex gpt-5.6-terra 7%
+Two rows:
+  📁 daybreaker  ⎇ main  ·  Opus 4.8
+  claude 5h ██░░░░ 23%  ·  wk ███░░░ 41%  ·  ctx █░░░░░ 8%  │  codex gpt-5.6-terra ░░░░░░ 7%
+
+A meter that crosses the "close" threshold (80%) also shows when it resets:
+  wk █████░ 82% ⟲ Aug 09 4:36pm
 
 Data sources:
   - Claude Code statusLine JSON (stdin): model, cwd/repo, context %, rate_limits
+      rate_limits.five_hour / .seven_day -> used_percentage + resets_at (unix secs)
   - git (via subprocess): current branch
   - ~/.codex/config.toml: current Codex model
   - ~/.codex/sessions/**/rollout-*.jsonl: last persisted Codex rate-limit snapshot
+      (primary.used_percent + resets_at; window_minutes 10080 == weekly)
+
+Side effect: each render persists the Claude rate_limits object (+ a timestamp) to
+~/.claude/usage-cache.json. Claude's 5h/weekly numbers are delivered ONLY here on
+stdin and never otherwise written to disk, so this cache is what lets an out-of-session
+job (usage-report.py, run hourly) report Claude usage and reset times.
 """
 import json
 import os
@@ -16,7 +28,10 @@ import sys
 import time
 from pathlib import Path
 
-# ---- ANSI helpers -----------------------------------------------------------
+# ---- thresholds & ANSI ------------------------------------------------------
+WARN = 50   # green below this
+CLOSE = 80  # red at/above this; also reveals the reset time
+
 DIM = "\033[2m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
@@ -25,16 +40,43 @@ CYAN = "\033[36m"
 GREEN = "\033[32m"
 YELLOW = "\033[33m"
 RED = "\033[31m"
-SEP = f" {DIM}·{RESET} "
+SEP = f"  {DIM}·{RESET}  "   # between items within one tool's group
+DIV = f"  {DIM}│{RESET}  "   # between the claude group and the codex group
+
+CACHE = Path.home() / ".claude" / "usage-cache.json"
 
 
 def pct_color(p):
-    """Green under 50%, yellow under 80%, red at/above 80%."""
-    if p >= 80:
+    if p >= CLOSE:
         return RED
-    if p >= 50:
+    if p >= WARN:
         return YELLOW
     return GREEN
+
+
+def meter(p, width=6):
+    """Colored █/░ bar for a 0-100 percentage."""
+    p = max(0, min(100, p))
+    filled = int(round(p / 100 * width))
+    c = pct_color(p)
+    return f"{c}{'█' * filled}{DIM}{'░' * (width - filled)}{RESET}"
+
+
+def reset_str(epoch):
+    if not epoch:
+        return ""
+    t = time.localtime(epoch)
+    stamp = time.strftime("%b %d %-I:%M", t) + time.strftime("%p", t).lower()
+    return f" {DIM}⟲ {stamp}{RESET}"
+
+
+def gauge(label, pct, resets_at=None):
+    """Render 'label ██░░░░ 42%', appending the reset time when close to the cap."""
+    p = int(round(pct))
+    seg = f"{label} {meter(p)} {pct_color(p)}{p}%{RESET}"
+    if p >= CLOSE:
+        seg += reset_str(resets_at)
+    return seg
 
 
 def read_stdin_json():
@@ -50,8 +92,7 @@ def git_branch(cwd):
             ["git", "-C", cwd, "branch", "--show-current"],
             capture_output=True, text=True, timeout=1,
         )
-        b = out.stdout.strip()
-        return b or None
+        return out.stdout.strip() or None
     except Exception:
         return None
 
@@ -66,42 +107,6 @@ def codex_model():
     except Exception:
         pass
     return None
-
-
-def codex_usage():
-    """Return (weekly_pct:int|None, stale:bool). Reads the newest rollout file's
-    last rate_limits snapshot. 'stale' = snapshot file older than 8 hours."""
-    sessions = Path.home() / ".codex" / "sessions"
-    try:
-        files = list(sessions.rglob("rollout-*.jsonl"))
-        if not files:
-            return None, True
-        newest = max(files, key=lambda f: f.stat().st_mtime)
-        stale = (time.time() - newest.stat().st_mtime) > 8 * 3600
-        weekly = None
-        # scan from the end for the last line containing rate_limits
-        for line in reversed(newest.read_text(errors="ignore").splitlines()):
-            if '"rate_limits"' not in line:
-                continue
-            try:
-                # find the rate_limits object regardless of nesting
-                idx = line.index('"rate_limits"')
-                # locate the primary window's used_percent
-                obj = json.loads(line)
-                rl = _find_key(obj, "rate_limits")
-                if isinstance(rl, dict):
-                    primary = rl.get("primary") or {}
-                    wm = primary.get("window_minutes")
-                    up = primary.get("used_percent")
-                    if up is not None:
-                        # primary window is the weekly (10080 min) bucket
-                        weekly = int(round(up))
-                        return weekly, stale
-            except Exception:
-                continue
-        return weekly, stale
-    except Exception:
-        return None, True
 
 
 def _find_key(obj, key):
@@ -121,55 +126,94 @@ def _find_key(obj, key):
     return None
 
 
+def codex_usage():
+    """Return (weekly_pct:int|None, resets_at:int|None, stale:bool) from the newest
+    rollout file's last rate_limits snapshot. stale => file older than 8 hours."""
+    sessions = Path.home() / ".codex" / "sessions"
+    try:
+        files = list(sessions.rglob("rollout-*.jsonl"))
+        if not files:
+            return None, None, True
+        newest = max(files, key=lambda f: f.stat().st_mtime)
+        stale = (time.time() - newest.stat().st_mtime) > 8 * 3600
+        for line in reversed(newest.read_text(errors="ignore").splitlines()):
+            if '"rate_limits"' not in line:
+                continue
+            try:
+                rl = _find_key(json.loads(line), "rate_limits")
+            except Exception:
+                continue
+            if isinstance(rl, dict):
+                primary = rl.get("primary") or {}
+                up = primary.get("used_percent")
+                if up is not None:
+                    return int(round(up)), primary.get("resets_at"), stale
+        return None, None, stale
+    except Exception:
+        return None, None, True
+
+
+def cache_claude(rl):
+    """Persist the Claude rate_limits object so the hourly report can read it."""
+    try:
+        CACHE.write_text(json.dumps({"written_at": int(time.time()), "rate_limits": rl}))
+    except Exception:
+        pass
+
+
 def main():
     d = read_stdin_json()
-    parts = []
 
-    # 1) dir + branch
+    # ---- row 1: dir + branch + model ----
     ws = d.get("workspace") or {}
     cwd = ws.get("current_dir") or d.get("cwd") or os.getcwd()
     repo = ws.get("repo") or {}
     name = repo.get("name") or os.path.basename(cwd.rstrip("/")) or cwd
-    seg = f"{BOLD}{name}{RESET}"
+    row1 = f"📁 {BOLD}{name}{RESET}"
     branch = git_branch(cwd)
     if branch:
-        seg += f" {MAGENTA}⎇ {branch}{RESET}"
-    parts.append(seg)
-
-    # 2) Claude model
+        row1 += f"  {MAGENTA}⎇ {branch}{RESET}"
     model = (d.get("model") or {}).get("display_name")
     if model:
-        parts.append(f"{CYAN}{model}{RESET}")
+        row1 += f"{SEP}{CYAN}{model}{RESET}"
 
-    # 3) Claude 5h usage
+    # ---- row 2: usage meters ----
     rl = d.get("rate_limits") or {}
-    fh = (rl.get("five_hour") or {}).get("used_percentage")
-    if fh is not None:
-        p = int(round(fh))
-        parts.append(f"5h {pct_color(p)}{p}%{RESET}")
+    if rl:  # don't let an early-session empty render clobber good cached numbers
+        cache_claude(rl)
 
-    # 4) Claude weekly usage
-    sd = (rl.get("seven_day") or {}).get("used_percentage")
-    if sd is not None:
-        p = int(round(sd))
-        parts.append(f"wk {pct_color(p)}{p}%{RESET}")
+    claude_gauges = []
+    claude_tag = f"{DIM}claude{RESET} "  # prefixes the first Claude window, like 'codex'
+    fh = rl.get("five_hour") or {}
+    if fh.get("used_percentage") is not None:
+        claude_gauges.append(claude_tag + gauge("5h", fh["used_percentage"], fh.get("resets_at")))
+        claude_tag = ""
 
-    # 5) context window
+    sd = rl.get("seven_day") or {}
+    if sd.get("used_percentage") is not None:
+        claude_gauges.append(claude_tag + gauge("wk", sd["used_percentage"], sd.get("resets_at")))
+        claude_tag = ""
+
     cw = (d.get("context_window") or {}).get("used_percentage")
     if cw is not None:
-        p = int(round(cw))
-        parts.append(f"ctx {pct_color(p)}{p}%{RESET}")
+        claude_gauges.append(gauge("ctx", cw))
 
-    # 6) codex model + weekly usage
+    codex_gauges = []
     cmodel = codex_model()
     if cmodel:
-        cx = f"{DIM}codex{RESET} {cmodel}"
-        weekly, stale = codex_usage()
+        weekly, cresets, stale = codex_usage()
         if weekly is not None:
-            cx += f" {pct_color(weekly)}{weekly}%{RESET}"
-        parts.append(cx)
+            label = f"{DIM}codex{RESET} {cmodel}{DIM}~{RESET}" if stale else f"{DIM}codex{RESET} {cmodel}"
+            codex_gauges.append(gauge(label, weekly, cresets))
+        else:
+            codex_gauges.append(f"{DIM}codex {cmodel}{RESET}")
 
-    sys.stdout.write(SEP.join(parts))
+    # bullets within a tool's group, a divider between the two tools
+    groups = [SEP.join(g) for g in (claude_gauges, codex_gauges) if g]
+    out = row1
+    if groups:
+        out += "\n" + DIV.join(groups)
+    sys.stdout.write(out)
 
 
 if __name__ == "__main__":
