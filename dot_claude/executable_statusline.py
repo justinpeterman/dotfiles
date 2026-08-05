@@ -70,11 +70,12 @@ def reset_str(epoch):
     return f" {DIM}⟲ {stamp}{RESET}"
 
 
-def gauge(label, pct, resets_at=None):
-    """Render 'label ██░░░░ 42%', appending the reset time when close to the cap."""
+def gauge(label, pct, resets_at=None, always_reset=False):
+    """Render 'label ██░░░░ 42%', appending the reset time when close to the cap
+    (or always, when always_reset is set)."""
     p = int(round(pct))
     seg = f"{label} {meter(p)} {pct_color(p)}{p}%{RESET}"
-    if p >= CLOSE:
+    if always_reset or p >= CLOSE:
         seg += reset_str(resets_at)
     return seg
 
@@ -161,6 +162,17 @@ def cache_claude(rl):
         pass
 
 
+def load_cached_claude():
+    """Return the rate_limits from the last persisted render, or {} if none.
+
+    Used when the current render arrives without rate_limits (startup / idle),
+    so the 5h/weekly meters show last-known instead of vanishing."""
+    try:
+        return json.loads(CACHE.read_text()).get("rate_limits") or {}
+    except Exception:
+        return {}
+
+
 def main():
     d = read_stdin_json()
 
@@ -181,12 +193,14 @@ def main():
     rl = d.get("rate_limits") or {}
     if rl:  # don't let an early-session empty render clobber good cached numbers
         cache_claude(rl)
+    else:  # startup / idle render: fall back to last-known so meters don't vanish
+        rl = load_cached_claude()
 
     claude_gauges = []
     claude_tag = f"{DIM}claude{RESET} "  # prefixes the first Claude window, like 'codex'
     fh = rl.get("five_hour") or {}
     if fh.get("used_percentage") is not None:
-        claude_gauges.append(claude_tag + gauge("5h", fh["used_percentage"], fh.get("resets_at")))
+        claude_gauges.append(claude_tag + gauge("5h", fh["used_percentage"], fh.get("resets_at"), always_reset=True))
         claude_tag = ""
 
     sd = rl.get("seven_day") or {}
