@@ -84,20 +84,20 @@ After running bootstrap on a new machine:
 
 ## Daily workflow
 
-**Apply all changes:**
-```bash
-chezmoi apply
-```
+This repo has **two clones**: `~/workspace/dotfiles` is the canonical editing clone
+(always edit here), and `~/.local/share/chezmoi` is the operational clone chezmoi
+applies from. Edits flow **workspace → push → `chezmoi update`**, never the other way.
 
-**Add a new CLI tool or app:**
-1. Add it to `Brewfile`
-2. Run `chezmoi apply` — detects the change and runs `brew bundle`
+**Edit a dotfile / add a CLI tool or app:**
+1. Edit the source file in `~/workspace/dotfiles` using chezmoi source names
+   (`dot_*`, `*.tmpl`, `executable_*`, `run_onchange_*`) — e.g. add a tool to `Brewfile`.
+2. `git commit` + `git push` to `main`.
+3. `chezmoi update` — pulls into `~/.local/share/chezmoi` and applies (reruns
+   `brew bundle` if a Brewfile changed).
 
-**Edit a dotfile:**
-```bash
-chezmoi edit ~/.zshrc   # opens in $EDITOR
-chezmoi apply           # applies the change
-```
+> Do **not** use `chezmoi edit`/`chezmoi add` or edit `~/.local/share/chezmoi`
+> directly — that writes to the operational clone and diverges it from this repo.
+> On any other machine, `chezmoi update` alone pulls and applies the latest.
 
 **Re-run macOS defaults** (e.g. on a new machine after the fact):
 ```bash

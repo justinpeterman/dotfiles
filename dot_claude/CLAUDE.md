@@ -2,7 +2,8 @@
 
 ## Node & package managers — mise
 - Manager: `mise` (Homebrew, shared Brewfile). Replaces the old fnm + Corepack setup.
-- One tool-version manager across personal development, CI, and servers. No global Node install.
+- One tool-version manager across personal development, CI, and servers. No system-wide Node install (no Homebrew/nvm node).
+- Exception: `~/.config/mise/config.toml` pins a mise-global `node` — global `npm:` backend tools (e.g. `claude-auto-retry`) ship shims that `exec node`, so they break with `exec: node: not found` when nothing is pinned. Per-repo `mise.toml` pins still take precedence; the global pin is only the fallback for tools installed outside any project.
 - Each repo pins its exact runtimes (Node, pnpm, etc.) in `mise.toml`; run `mise install` inside a project to provision them. `mise activate` is hooked in `.zshrc`, so runtimes resolve automatically in an interactive shell (or via `mise exec` non-interactively).
 - Preferred package manager remains `pnpm` over `npm`/`yarn` for new project work — pin it per-repo in `mise.toml`. Use `npm` only when (a) the project already uses it and switching is out of scope, or (b) publishing a library where downstream installs assume npm.
 
@@ -33,6 +34,11 @@ Both machine types run macOS. The shared `Brewfile` always applies; then `Brewfi
 - **Server only**: a macOS box provisioned for always-on services — `cloudflared`, `webhook`, `logrotate`, and the open-source `tailscale`/`tailscaled` system daemon (starts before login / at boot). Still macOS with a display, just the server toolset.
 
 `mise` is the single runtime manager across all three (personal, CI, servers).
+
+# Editing these dotfiles (chezmoi)
+Two clones of `git@github.com:justinpeterman/dotfiles.git` exist: **`~/workspace/dotfiles` is the canonical editing clone** (source of truth), and `~/.local/share/chezmoi` is the operational clone that `chezmoi apply` reads from.
+
+**Always edit dotfiles in `~/workspace/dotfiles` first**, using chezmoi source names (`dot_*`, `*.tmpl`, `executable_*`, `run_onchange_*`). Then commit + push to `main`, and run `chezmoi update` (git pull + apply) to sync `~/.local/share/chezmoi`. **Never** edit `~/.local/share/chezmoi` directly, and don't use `chezmoi edit`/`chezmoi add` — they write to the operational clone and split its history from the canonical repo. If a change ever lands in the operational clone by mistake, relocate it to `~/workspace/dotfiles`, then `git checkout`/`rm` the stray edit in `~/.local/share/chezmoi` and re-pull.
 
 # Codex review gate
 The Codex Companion plugin's stop-time review gate (`/codex:setup --enable-review-gate`) is a per-workspace toggle stored in plugin state, not a global setting. Until every workspace has it enabled natively, proactively hold yourself to the same standard everywhere: before ending a turn that made code changes, run `/codex:review` (or otherwise get a Codex review) and address anything it flags, the same way the hook would block on.

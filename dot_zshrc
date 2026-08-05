@@ -25,6 +25,14 @@ command -v pyenv >/dev/null && eval "$(pyenv init -)"
 # ── mise (project runtimes) ──────────────────────────────────
 command -v mise >/dev/null && eval "$(mise activate zsh)"
 
+# ── claude-auto-retry wrapper ────────────────────────────────
+# run_onchange_after_claude-auto-retry.sh renders the claude() wrapper into this
+# unmanaged file (not into this dot_zshrc), specifically so `chezmoi apply`
+# regenerating dot_zshrc from source can never erase it. Sourced after mise
+# activate above, since the wrapper's `node "<launcher>"` call needs mise's
+# node shim already on PATH.
+[[ -r "$HOME/.config/claude-auto-retry/wrapper.zsh" ]] && source "$HOME/.config/claude-auto-retry/wrapper.zsh"
+
 # ── direnv ───────────────────────────────────────────────────
 command -v direnv >/dev/null && eval "$(direnv hook zsh)"
 
