@@ -6,6 +6,7 @@ brew "zoxide"
 brew "ripgrep"
 brew "eza"
 brew "bat"
+brew "tmux"
 # One project tool-version manager for personal development, CI, and servers.
 # Repositories pin their exact runtimes in mise.toml.
 brew "mise"
