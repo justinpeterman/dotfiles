@@ -30,8 +30,15 @@ else
 fi
 
 # install_plugins is safe to re-run; it no-ops for already-present plugins.
-# It reads the @plugin list straight from tmux.conf and needs no running server.
+#
+# It resolves the install path with `tmux start-server; show-environment -g
+# TMUX_PLUGIN_MANAGER_PATH`, and `start-server` brings up a bare server that has
+# sourced no config — so the variable tmux.conf sets is not there yet and the
+# install aborts. Seed it on the server first. Harmless if a server is already
+# running: sourcing tmux.conf sets the same value.
 echo "→ Installing tmux plugins..."
+tmux start-server
+tmux set-environment -g TMUX_PLUGIN_MANAGER_PATH "${PLUGIN_DIR}/"
 "${TPM_DIR}/bin/install_plugins" || echo "  (install reported an issue; run 'prefix + I' inside tmux)"
 
 echo "✓ tmux plugins ready"
