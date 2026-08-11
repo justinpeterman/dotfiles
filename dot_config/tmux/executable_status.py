@@ -101,8 +101,13 @@ def run(args, timeout=1.0):
         return ""
 
 
+MAX_CACHE_BYTES = 1 << 20   # these files are small; refuse to read a runaway one
+
+
 def read_json(path):
     try:
+        if path.stat().st_size > MAX_CACHE_BYTES:
+            return None   # never let a runaway file stall the status bar
         return json.loads(path.read_text())
     except Exception:
         return None
@@ -207,13 +212,18 @@ def claude_snapshot(panes):
     most recently updated. Snapshots for panes that are gone are unlinked on the
     way past.
     """
-    live = {p["id"] for p in panes}
-    try:
-        for f in CACHE_DIR.glob("claude-*.json"):
-            if f"%{f.stem.split('-', 1)[1]}" not in live:
-                f.unlink(missing_ok=True)
-    except Exception:
-        pass
+    # Liveness is judged against every pane on the SERVER, not just this
+    # session's. Scoping it to `panes` would make rendering one session delete
+    # the snapshots of Claude sessions running in all the others.
+    all_panes = run(["tmux", "list-panes", "-a", "-F", "#{pane_id}"]).split()
+    if all_panes:
+        live = set(all_panes)
+        try:
+            for f in CACHE_DIR.glob("claude-*.json"):
+                if f"%{f.stem.split('-', 1)[1]}" not in live:
+                    f.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     running = [p for p in panes if p["cmd"] == "claude"]
     if not running:
@@ -264,11 +274,14 @@ def codex_pids_in_session(panes):
     return pids
 
 
-def rollout_for_start(started):
+def rollout_for_start(started, pid=None):
     """Find the rollout file whose embedded timestamp matches process start.
 
-    Codex names the file after the moment the session began, so this is an exact
-    identification with no directory walk beyond that one day.
+    Codex names the file after the moment the session began, so a match is
+    normally exact and needs no directory walk beyond that one day. Two sessions
+    launched within the tolerance window would be ambiguous, though, so in that
+    case fall back to asking lsof which file the process actually holds open.
+    That call is ~50-100ms, which is why it isn't the primary path.
     """
     try:
         dt = datetime.strptime(" ".join(started.split()), "%a %b %d %H:%M:%S %Y")
@@ -277,7 +290,8 @@ def rollout_for_start(started):
     day = CODEX_SESSIONS / f"{dt.year:04d}" / f"{dt.month:02d}" / f"{dt.day:02d}"
     if not day.is_dir():
         return None
-    best = None
+
+    candidates = []
     for f in day.glob("rollout-*.jsonl"):
         m = ROLLOUT_RE.search(f.name)
         if not m:
@@ -287,9 +301,21 @@ def rollout_for_start(started):
         except Exception:
             continue
         delta = abs((ft - dt).total_seconds())
-        if delta <= 2 and (best is None or delta < best[0]):
-            best = (delta, f)
-    return best[1] if best else None
+        if delta <= 2:
+            candidates.append((delta, f))
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0][1]
+
+    if pid:
+        held = {c[1] for c in candidates}
+        for line in run(["lsof", "-p", str(pid)], timeout=3.0).splitlines():
+            for f in held:
+                if f.name in line:
+                    return f
+    candidates.sort(key=lambda c: c[0])
+    return candidates[0][1]
 
 
 def tail_lines(path, nbytes=TAIL_BYTES):
@@ -349,27 +375,35 @@ def codex_from_rollout(path):
 
 
 def codex_snapshot(panes):
-    """Codex numbers for this session, cached so we derive at most once a minute."""
-    cached = read_json(CODEX_CACHE)
-    if cached and (time.time() - cached.get("ts", 0)) < CODEX_TTL:
-        return cached if cached.get("running") else None
+    """Codex numbers for this session, or None if Codex isn't running in it.
 
+    Whether Codex is present is resolved fresh on every call, because it is
+    per-session and cheap (a pgrep plus a ps per pid). Only the expensive part —
+    parsing the rollout — is cached, keyed by the rollout path. Caching the
+    presence verdict instead would leak across sessions: a shell-only session
+    would write "not running" and suppress Codex in a sibling session that has
+    it, for up to a minute.
+    """
     pids = codex_pids_in_session(panes)
     if not pids:
-        write_json_atomic(CODEX_CACHE, {"ts": time.time(), "running": False})
         return None
 
-    snap = None
+    path = None
     for pid, started in pids:
-        path = rollout_for_start(started)
+        path = rollout_for_start(started, pid)
         if path:
-            snap = codex_from_rollout(path)
-            if snap.get("ctx") is not None or snap.get("weekly") is not None:
-                break
-    if snap is None:
-        snap = {"ctx": None, "weekly": None, "resets_at": None,
+            break
+    if not path:
+        return {"ctx": None, "weekly": None, "resets_at": None,
                 "model": None, "data_ts": None}
-    snap.update({"ts": time.time(), "running": True})
+
+    cached = read_json(CODEX_CACHE)
+    if (cached and cached.get("path") == str(path)
+            and (time.time() - cached.get("ts", 0)) < CODEX_TTL):
+        return cached
+
+    snap = codex_from_rollout(path)
+    snap.update({"ts": time.time(), "path": str(path)})
     write_json_atomic(CODEX_CACHE, snap)
     return snap
 
