@@ -4,6 +4,9 @@ bootstrap.sh
 .gitignore
 .idea
 
+# TPM clones tmux plugins inside a chezmoi-managed directory; leave them alone.
+.config/tmux/plugins/**
+
 # Brewfiles are read from the chezmoi source dir by run_onchange_brew-bundle,
 # so they must never be applied into $HOME.
 Brewfile
