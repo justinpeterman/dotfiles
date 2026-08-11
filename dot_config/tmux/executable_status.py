@@ -334,7 +334,9 @@ def tail_lines(path, nbytes=TAIL_BYTES):
             f.seek(0, os.SEEK_END)
             size = f.tell()
             f.seek(max(0, size - nbytes))
-            data = f.read()
+            # Bounded explicitly: Codex appends to this file while we read, so a
+            # bare read() would follow the growth instead of stopping at nbytes.
+            data = f.read(nbytes)
         if size > nbytes:
             data = data.split(b"\n", 1)[-1]   # drop the partial first line
         return data.decode("utf-8", "replace").splitlines()
