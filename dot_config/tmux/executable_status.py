@@ -105,10 +105,17 @@ MAX_CACHE_BYTES = 1 << 20   # these files are small; refuse to read a runaway on
 
 
 def read_json(path):
+    """Read a small JSON cache, refusing anything oversized.
+
+    The cap is enforced by the read itself rather than by a prior stat(), so a
+    file that grows or is swapped between the two can't slip past it.
+    """
     try:
-        if path.stat().st_size > MAX_CACHE_BYTES:
-            return None   # never let a runaway file stall the status bar
-        return json.loads(path.read_text())
+        with open(path, "rb") as f:
+            data = f.read(MAX_CACHE_BYTES + 1)
+        if len(data) > MAX_CACHE_BYTES:
+            return None
+        return json.loads(data)
     except Exception:
         return None
 
@@ -280,8 +287,12 @@ def rollout_for_start(started, pid=None):
     Codex names the file after the moment the session began, so a match is
     normally exact and needs no directory walk beyond that one day. Two sessions
     launched within the tolerance window would be ambiguous, though, so in that
-    case fall back to asking lsof which file the process actually holds open.
-    That call is ~50-100ms, which is why it isn't the primary path.
+    case ask lsof which file the process actually holds open. That call is
+    ~50-100ms, which is why it isn't the primary path.
+
+    If lsof can't settle it either, return nothing. Guessing the nearest
+    timestamp would mean showing another session's usage numbers as if they were
+    this one's, and a missing meter is far better than a confidently wrong one.
     """
     try:
         dt = datetime.strptime(" ".join(started.split()), "%a %b %d %H:%M:%S %Y")
@@ -310,12 +321,11 @@ def rollout_for_start(started, pid=None):
 
     if pid:
         held = {c[1] for c in candidates}
-        for line in run(["lsof", "-p", str(pid)], timeout=3.0).splitlines():
+        for line in run(["lsof", "-p", str(pid)], timeout=1.0).splitlines():
             for f in held:
                 if f.name in line:
                     return f
-    candidates.sort(key=lambda c: c[0])
-    return candidates[0][1]
+    return None
 
 
 def tail_lines(path, nbytes=TAIL_BYTES):
