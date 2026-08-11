@@ -99,6 +99,23 @@ applies from. Edits flow **workspace → push → `chezmoi update`**, never the 
 > directly — that writes to the operational clone and diverges it from this repo.
 > On any other machine, `chezmoi update` alone pulls and applies the latest.
 
+## AI usage status
+
+`~/.claude/usage-report.py` is the shared Claude/Codex usage collector. It feeds
+the hourly launchd report and can render either terminal text or normalized JSON:
+
+```bash
+~/.claude/usage-report.py --no-ping
+~/.claude/usage-report.py --json --no-ping
+~/.claude/usage-report.py --watch
+```
+
+Claude's status line renders its own context and account limits directly, plus
+Codex context and limits read locally from the newest Codex rollout. This works
+in Conductor's large-terminal view as well as a normal terminal. tmux deliberately
+does not duplicate those meters; its bar contains only the directory, branch,
+and window list. Conductor also renders Codex limits natively in its own UI.
+
 **Re-run macOS defaults** (e.g. on a new machine after the fact):
 ```bash
 chezmoi state delete-bucket --bucket=scriptState
