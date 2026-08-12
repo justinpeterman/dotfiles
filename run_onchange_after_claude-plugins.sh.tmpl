@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Ensures Claude Code marketplaces + plugins are present on every machine.
-# run_onchange: edit the MARKETPLACES/PLUGINS lists to re-trigger on next apply.
-# Runs `after` file apply so the brew-bundled `claude` CLI is already installed.
-# Installs AND enables each plugin at user scope.
+# Ensures Claude Code + Codex marketplaces and plugins are present on every machine.
+# run_onchange: edit the lists to re-trigger on next apply.
+# Runs `after` file apply so the brew-bundled CLIs are already installed.
+# Claude plugins are installed and enabled at user scope; Codex plugins install enabled.
 set -euo pipefail
 
 # Non-interactive apply (esp. server SSH) may not have Homebrew on PATH yet.
@@ -10,42 +10,74 @@ if [ -x /opt/homebrew/bin/brew ]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
-if ! command -v claude >/dev/null 2>&1; then
-  echo "⚠ claude CLI not found on PATH; skipping plugin install"
-  exit 0
-fi
-
 # GitHub sources to register as marketplaces.
 MARKETPLACES=(
-  "openai/codex-plugin-cc"
+  # HTTPS avoids depending on a GitHub SSH key during initial bootstrap.
+  "https://github.com/openai/codex-plugin-cc.git"
+  "https://github.com/addyosmani/agent-skills.git"
 )
 # plugin@marketplace ids to install at user scope.
 PLUGINS=(
   "codex@openai-codex"
+  "agent-skills@addy-agent-skills"
 )
 
-echo "→ Ensuring Claude Code marketplaces..."
-markets="$(claude plugin marketplace list 2>/dev/null || true)"
-for src in "${MARKETPLACES[@]}"; do
-  if printf '%s' "$markets" | grep -qF "$src"; then
-    echo "  ✓ marketplace already present: $src"
-  else
-    echo "  + adding marketplace: $src"
-    claude plugin marketplace add "$src" || echo "  ⚠ failed to add $src (continuing)"
-  fi
-done
+if ! command -v claude >/dev/null 2>&1; then
+  echo "⚠ claude CLI not found on PATH; skipping Claude plugin install"
+else
+  echo "→ Ensuring Claude Code marketplaces..."
+  markets="$(claude plugin marketplace list 2>/dev/null || true)"
+  for src in "${MARKETPLACES[@]}"; do
+    # Claude may normalize an HTTPS GitHub URL to owner/repo in its listing.
+    marketplace_name="${src#https://github.com/}"
+    marketplace_name="${marketplace_name%.git}"
+    if printf '%s' "$markets" | grep -qF "$src" \
+        || printf '%s' "$markets" | grep -qF "$marketplace_name"; then
+      echo "  ✓ marketplace already present: $src"
+    else
+      echo "  + adding marketplace: $src"
+      claude plugin marketplace add "$src" || echo "  ⚠ failed to add $src (continuing)"
+    fi
+  done
 
-echo "→ Ensuring Claude Code plugins (installed + enabled)..."
-installed="$(claude plugin list 2>/dev/null || true)"
-for p in "${PLUGINS[@]}"; do
-  if printf '%s' "$installed" | grep -qF "$p"; then
-    echo "  ✓ plugin already installed: $p"
-  else
-    echo "  + installing plugin: $p"
-    claude plugin install "$p" --scope user || echo "  ⚠ failed to install $p (continuing)"
-  fi
-  echo "  → enabling: $p"
-  claude plugin enable "$p" --scope user || echo "  ⚠ failed to enable $p (continuing)"
-done
+  echo "→ Ensuring Claude Code plugins (installed + enabled)..."
+  installed="$(claude plugin list 2>/dev/null || true)"
+  for p in "${PLUGINS[@]}"; do
+    if printf '%s' "$installed" | grep -qF "$p"; then
+      echo "  ✓ plugin already installed: $p"
+    else
+      echo "  + installing plugin: $p"
+      claude plugin install "$p" --scope user || echo "  ⚠ failed to install $p (continuing)"
+    fi
+    echo "  → enabling: $p"
+    claude plugin enable "$p" --scope user || echo "  ⚠ failed to enable $p (continuing)"
+  done
+fi
 
-echo "✓ Claude Code plugins ensured"
+CODEX_MARKETPLACE="https://github.com/addyosmani/agent-skills.git"
+CODEX_MARKETPLACE_NAME="agent-skills"
+CODEX_PLUGIN="agent-skills@agent-skills"
+
+if ! command -v codex >/dev/null 2>&1; then
+  echo "⚠ codex CLI not found on PATH; skipping Codex plugin install"
+else
+  echo "→ Ensuring Codex marketplace..."
+  codex_markets="$(codex plugin marketplace list --json 2>/dev/null || true)"
+  if printf '%s' "$codex_markets" | grep -qF "\"name\": \"$CODEX_MARKETPLACE_NAME\""; then
+    echo "  ✓ marketplace already present: $CODEX_MARKETPLACE_NAME"
+  else
+    echo "  + adding marketplace: $CODEX_MARKETPLACE"
+    codex plugin marketplace add "$CODEX_MARKETPLACE" || echo "  ⚠ failed to add marketplace (continuing)"
+  fi
+
+  echo "→ Ensuring Codex plugin..."
+  codex_plugins="$(codex plugin list --json 2>/dev/null || true)"
+  if printf '%s' "$codex_plugins" | grep -qF "\"pluginId\": \"$CODEX_PLUGIN\""; then
+    echo "  ✓ plugin already installed: $CODEX_PLUGIN"
+  else
+    echo "  + installing plugin: $CODEX_PLUGIN"
+    codex plugin add "$CODEX_PLUGIN" || echo "  ⚠ failed to install plugin (continuing)"
+  fi
+fi
+
+echo "✓ AI coding-agent plugins ensured"
