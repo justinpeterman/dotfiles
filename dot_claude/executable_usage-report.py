@@ -136,12 +136,20 @@ def write_json_atomic(path, obj):
 
 
 def write_claude_usage(windows):
-    """Serialize with interactive statusline writers before replacing the cache."""
+    """Serialize with statusline writers, retaining their context fallbacks."""
     try:
         with CACHE_LOCK.open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                existing = json.loads(CACHE.read_text()) or {}
+            except Exception:
+                existing = {}
+            existing.update({
+                "written_at": int(time.time()),
+                "rate_limits": windows,
+            })
             return write_json_atomic(
-                CACHE, {"written_at": int(time.time()), "rate_limits": windows}
+                CACHE, existing
             )
     except Exception:
         return False

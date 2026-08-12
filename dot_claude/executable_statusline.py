@@ -16,10 +16,12 @@ Data sources:
   - git (via subprocess): current branch
 
 Side effect:
-  - ~/.claude/usage-cache.json gets the rate_limits object. Claude's 5h/weekly
-    numbers arrive here on stdin, so this cache lets the hourly usage report see
-    them. Writes are locked and atomic because multiple Claude sessions publish
-    to the shared file.
+  - ~/.claude/usage-cache.json gets rate_limits plus recent context percentages
+    keyed by Claude session ID. Claude's 5h/weekly numbers arrive here on stdin,
+    so this cache lets the hourly usage report see them. The context fallback
+    keeps an idle render from blanking an otherwise unchanged session without
+    leaking a different session's context. Writes are locked and atomic because
+    multiple Claude sessions publish to the shared file.
 """
 import fcntl
 import json
@@ -51,6 +53,7 @@ CACHE = Path.home() / ".claude" / "usage-cache.json"
 CACHE_LOCK = Path.home() / ".claude" / ".usage-cache.lock"
 LOCK_TIMEOUT = 0.25   # seconds to wait for the cache lock before skipping
 USAGE_REPORT = Path.home() / ".claude" / "usage-report.py"
+MAX_CACHED_CONTEXTS = 64
 
 
 def pct_color(p):
@@ -98,22 +101,44 @@ def expired(resets_at):
 
 
 def rate_limit_gauges(rate_limits):
-    """Render Claude's live 5h/week subscription windows."""
+    """Render Claude's 5h/week subscription windows.
+
+    Cached usage is necessarily a snapshot. Once its reset time passes, its old
+    percentage is false, but dropping the gauge altogether makes a reset look
+    like a missing status line. Show the known post-reset value (0%) until the
+    scheduled `/usage` refresh records the new window and its next reset time.
+    """
     parts = []
     for key, label in (("five_hour", "5h"), ("seven_day", "wk")):
         window = (rate_limits or {}).get(key) or {}
         pct = window.get("used_percentage")
         resets_at = window.get("resets_at")
-        if numeric(pct) and not expired(resets_at):
-            parts.append(gauge(label, pct, resets_at))
+        if numeric(pct):
+            parts.append(gauge(label, 0 if expired(resets_at) else pct,
+                               None if expired(resets_at) else resets_at))
     return parts
 
 
-def read_cached_claude_usage():
+def read_cached_claude_status():
     try:
-        return (json.loads(CACHE.read_text()) or {}).get("rate_limits") or {}
+        return json.loads(CACHE.read_text()) or {}
     except Exception:
         return {}
+
+
+def session_id(data):
+    """Return Claude's stable session identifier, if this is a real session."""
+    value = data.get("session_id")
+    return value if isinstance(value, str) and value else None
+
+
+def cached_context_percent(cache, current_session):
+    """Read only this session's context; the usage cache is machine-wide."""
+    if not current_session:
+        return None
+    contexts = cache.get("contexts") or {}
+    entry = contexts.get(current_session) if isinstance(contexts, dict) else {}
+    return entry.get("used_percentage") if isinstance(entry, dict) else None
 
 
 def read_codex_status():
@@ -207,8 +232,8 @@ def regressive(window, cached):
     return now is not None and before is not None and now < before
 
 
-def publish_usage(rl):
-    """Write rate_limits to the shared cache unless something fresher is there.
+def publish_usage(rl=None, context_percent=None, current_session=None):
+    """Update the shared usage/context cache without losing fresher usage.
 
     read -> compare -> write has to be one critical section. Every session on
     the machine writes this file, so without the lock a stale session can read
@@ -240,12 +265,35 @@ def publish_usage(rl):
                         return   # someone is mid-write; their value is no older
                     time.sleep(0.005)
             try:
-                cached = (json.loads(CACHE.read_text()) or {}).get("rate_limits") or {}
+                cached_doc = json.loads(CACHE.read_text()) or {}
             except Exception:
-                cached = {}
-            if any(regressive(w, cached.get(k)) for k, w in rl.items()):
-                return
-            write_json_atomic(CACHE, {"written_at": int(time.time()), "rate_limits": rl})
+                cached_doc = {}
+            cached = cached_doc.get("rate_limits") or {}
+            updated = dict(cached_doc)
+            changed = False
+            if rl and not any(regressive(w, cached.get(k)) for k, w in rl.items()):
+                updated["written_at"] = int(time.time())
+                updated["rate_limits"] = rl
+                changed = True
+            if current_session and numeric(context_percent):
+                contexts = cached_doc.get("contexts") or {}
+                contexts = dict(contexts) if isinstance(contexts, dict) else {}
+                contexts[current_session] = {
+                    "used_percentage": context_percent,
+                    "written_at": int(time.time()),
+                }
+                if len(contexts) > MAX_CACHED_CONTEXTS:
+                    keep = sorted(
+                        contexts.items(),
+                        key=lambda item: (item[1].get("written_at", 0)
+                                          if isinstance(item[1], dict) else 0),
+                        reverse=True,
+                    )[:MAX_CACHED_CONTEXTS]
+                    contexts = dict(keep)
+                updated["contexts"] = contexts
+                changed = True
+            if changed:
+                write_json_atomic(CACHE, updated)
     except Exception:
         pass   # the cache is an optimisation; never fail a render over it
 
@@ -344,6 +392,7 @@ def main():
     model = (d.get("model") or {}).get("display_name")
     cw = (d.get("context_window") or {}).get("used_percentage")
     rl = d.get("rate_limits") or {}
+    current_session = session_id(d)
     billing = billing_mode(d)
 
     # Persist rate_limits so the hourly usage report can see Claude's 5h/weekly
@@ -360,19 +409,27 @@ def main():
     # a partial write would blank a meter another session had filled correctly.
     # Renders before a session's first API response fail this and leave the cache
     # alone, so it holds the newest LIVE reading rather than the newest render.
-    if isinstance(rl, dict) and all(publishable(rl.get(k)) for k in ("five_hour", "seven_day")):
-        publish_usage(rl)
+    # Context is independent of those account windows; cache a valid reading
+    # even when the current payload has no publishable limit snapshot.
+    live_rl = (rl if isinstance(rl, dict)
+               and all(publishable(rl.get(k)) for k in ("five_hour", "seven_day"))
+               else None)
+    if live_rl or (current_session and numeric(cw)):
+        publish_usage(live_rl, cw, current_session)
 
     branch = git_branch(cwd)
     effort = (d.get("effort") or {}).get("level")
     out = render_top_line(name, branch, model, billing, effort, d.get("fast_mode"))
 
     claude = []
+    cached_claude = read_cached_claude_status()
+    if not numeric(cw):
+        cw = cached_context_percent(cached_claude, current_session)
     if numeric(cw):
         claude.append(gauge("ctx", cw))
     # The shared cache may be newer than this particular session's payload.
     # publish_usage() prevents an idle session from regressing it.
-    claude.extend(rate_limit_gauges(read_cached_claude_usage() or rl))
+    claude.extend(rate_limit_gauges(cached_claude.get("rate_limits") or rl))
     usage_groups = []
     if claude:
         usage_groups.append(f"{CYAN}claude{RESET} "
