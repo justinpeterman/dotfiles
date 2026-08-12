@@ -42,15 +42,29 @@ else
 
   echo "→ Ensuring Claude Code plugins (installed + enabled)..."
   installed="$(claude plugin list 2>/dev/null || true)"
+  is_plugin_enabled() {
+    # `claude plugin install --scope user` auto-enables, so re-enabling an
+    # already-enabled plugin errors; check status first to avoid a false
+    # "failed to enable" on every provisioning run.
+    printf '%s\n' "$installed" | awk -v id="$1" '
+      $0 ~ ("❯ " id "$") { infield=1; next }
+      infield && /Status:/ { if ($0 ~ /enabled/) print "yes"; exit }
+    '
+  }
   for p in "${PLUGINS[@]}"; do
     if printf '%s' "$installed" | grep -qF "$p"; then
       echo "  ✓ plugin already installed: $p"
     else
       echo "  + installing plugin: $p"
       claude plugin install "$p" --scope user || echo "  ⚠ failed to install $p (continuing)"
+      installed="$(claude plugin list 2>/dev/null || true)"
     fi
-    echo "  → enabling: $p"
-    claude plugin enable "$p" --scope user || echo "  ⚠ failed to enable $p (continuing)"
+    if [ "$(is_plugin_enabled "$p")" = "yes" ]; then
+      echo "  ✓ plugin already enabled: $p"
+    else
+      echo "  → enabling: $p"
+      claude plugin enable "$p" --scope user || echo "  ⚠ failed to enable $p (continuing)"
+    fi
   done
 fi
 
