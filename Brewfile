@@ -28,7 +28,7 @@ cask "codex"
 cask "chatgpt"
 cask "google-chrome"
 cask "iterm2"
-cask "mark-text"
+cask "markdown-preview"
 cask "visual-studio-code"
 # Tailscale is intentionally NOT shared: servers use the open-source `tailscale`
 # formula (tailscaled system daemon, runs before login) — see Brewfile.server —
