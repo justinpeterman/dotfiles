@@ -8,7 +8,7 @@
       "Bash(pnpm test)"
     ]
   },
-  "model": "opus",
+  "model": "sonnet",
   "hooks": {
     "Notification": [
       {
@@ -34,5 +34,8 @@
     "command": "/opt/homebrew/bin/python3 {{ .chezmoi.homeDir }}/.claude/statusline.py",
     "padding": 0,
     "refreshInterval": 60
+  },
+  "enabledPlugins": {
+    "codex@openai-codex": true
   }
 }

@@ -2,3 +2,10 @@
 node = "22"
 "npm:claude-auto-retry" = "latest"
 "npm:continues" = "latest"
+
+[settings.npm]
+# mise's built-in "aube" installer aborts non-interactively when a package
+# declares a postinstall script (it can't prompt to approve running it), which
+# breaks unattended chezmoi runs. Shelling out to real npm instead installs
+# with --ignore-scripts by default, which is fine for CLI tools like these.
+shell_out = true
