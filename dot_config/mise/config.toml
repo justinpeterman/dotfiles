@@ -1,0 +1,4 @@
+[tools]
+node = "22"
+"npm:claude-auto-retry" = "latest"
+"npm:continues" = "latest"

@@ -22,6 +22,9 @@ dotfiles/
 ├── Brewfile.server                           # Server-only packages
 ├── dot_claude/
 │   └── settings.json.tmpl                    # → ~/.claude/settings.json (Claude Code config)
+├── dot_config/
+│   ├── mise/config.toml                      # → ~/.config/mise/config.toml (global mise tools: node, npm: backend CLIs)
+│   └── gh/config.yml                         # → ~/.config/gh/config.yml (GitHub CLI prefs/aliases)
 ├── dot_gitconfig.tmpl                        # → ~/.gitconfig (templated with name/email)
 ├── dot_gitignore_global                      # → ~/.gitignore_global
 ├── dot_zprofile                              # → ~/.zprofile (PATH setup for login shells)
@@ -29,6 +32,7 @@ dotfiles/
 ├── private_dot_ssh/
 │   └── config                                # → ~/.ssh/config (GitHub SSH)
 ├── run_onchange_brew-bundle.sh.tmpl          # Reruns brew bundle when Brewfile* changes
+├── run_onchange_after_mise-global-tools.sh.tmpl # Reruns `mise install` when dot_config/mise/config.toml changes
 ├── run_once_macos-defaults.sh                  # Applied once, shared across machines
 ├── run_once_after_macos-defaults-server.sh     # Applied once, server-only (after the shared script)
 ├── run_once_after_tailscale-daemon-server.sh   # Server-only: installs tailscaled system daemon + `up --ssh`
@@ -90,10 +94,13 @@ applies from. Edits flow **workspace → push → `chezmoi update`**, never the 
 
 **Edit a dotfile / add a CLI tool or app:**
 1. Edit the source file in `~/workspace/dotfiles` using chezmoi source names
-   (`dot_*`, `*.tmpl`, `executable_*`, `run_onchange_*`) — e.g. add a tool to `Brewfile`.
+   (`dot_*`, `*.tmpl`, `executable_*`, `run_onchange_*`) — e.g. add a Homebrew
+   tool to `Brewfile`, or an npm-global CLI tool to `dot_config/mise/config.toml`
+   (as a `"npm:<package>" = "latest"` entry under `[tools]`).
 2. `git commit` + `git push` to `main`.
 3. `chezmoi update` — pulls into `~/.local/share/chezmoi` and applies (reruns
-   `brew bundle` if a Brewfile changed).
+   `brew bundle` if a Brewfile changed, or `mise install` if
+   `dot_config/mise/config.toml` changed).
 
 > Do **not** use `chezmoi edit`/`chezmoi add` or edit `~/.local/share/chezmoi`
 > directly — that writes to the operational clone and diverges it from this repo.

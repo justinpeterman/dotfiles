@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# chezmoi re-runs this whenever dot_config/mise/config.toml changes.
+# hash: {{ include "dot_config/mise/config.toml" | sha256sum }}
+set -euo pipefail
+
+echo "→ Installing mise global tools..."
+cd "$HOME" && mise install
+echo "✓ mise global tools installed"
