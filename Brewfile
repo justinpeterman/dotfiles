@@ -23,6 +23,7 @@ brew "gradle"
 cask "font-jetbrains-mono-nerd-font"
 
 # ── Shared Apps ─────────────────────────────────────────────────────
+cask "claude"
 cask "claude-code"
 cask "codex"
 cask "chatgpt"
@@ -30,6 +31,7 @@ cask "google-chrome"
 cask "iterm2"
 cask "markdown-preview"
 cask "visual-studio-code"
+cask "1password"
 # Tailscale is intentionally NOT shared: servers use the open-source `tailscale`
 # formula (tailscaled system daemon, runs before login) — see Brewfile.server —
 # while personal machines use the `tailscale-app` GUI cask (Brewfile.personal).

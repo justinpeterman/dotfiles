@@ -29,8 +29,8 @@
 # Machine profiles (chezmoi `machine_type`)
 Both machine types run macOS. The shared `Brewfile` always applies; then `Brewfile.personal` or `Brewfile.server` layers on based on `machine_type` in `~/.config/chezmoi/chezmoi.toml`.
 
-- **Shared** (both): mise, pyenv, jenv/openjdk@21/gradle, gh, direnv, ripgrep/eza/bat/zoxide, starship, VS Code, Codex, Claude Code.
-- **Personal only**: WebStorm, Xcode + CocoaPods (iOS/mobile dev), 1Password, Tailscale GUI app, `mas`. Mobile/iOS work only exists here.
+- **Shared** (both): mise, pyenv, jenv/openjdk@21/gradle, gh, direnv, ripgrep/eza/bat/zoxide, starship, VS Code, Codex, Claude app, Claude Code, 1Password.
+- **Personal only**: WebStorm, Xcode + CocoaPods (iOS/mobile dev), Tailscale GUI app, `mas`. Mobile/iOS work only exists here.
 - **Server only**: a macOS box provisioned for always-on services — `cloudflared`, `webhook`, `logrotate`, and the open-source `tailscale`/`tailscaled` system daemon (starts before login / at boot). Still macOS with a display, just the server toolset.
 
 `mise` is the single runtime manager across all three (personal, CI, servers).

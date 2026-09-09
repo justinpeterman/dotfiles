@@ -3,7 +3,6 @@ brew "yt-dlp"
 brew "cocoapods"
 
 # ── Apps ─────────────────────────────────────────────────────
-cask "1password"
 cask "conductor"
 cask "firefox"
 cask "spotify"
