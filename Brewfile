@@ -10,6 +10,7 @@ brew "tmux"
 # One project tool-version manager for personal development, CI, and servers.
 # Repositories pin their exact runtimes in mise.toml.
 brew "mise"
+brew "bun"
 brew "pyenv"
 brew "direnv"
 brew "zsh-autosuggestions"
