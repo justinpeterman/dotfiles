@@ -4,6 +4,7 @@ brew "cocoapods"
 
 # ── Apps ─────────────────────────────────────────────────────
 cask "conductor"
+cask "figma"
 cask "firefox"
 cask "spotify"
 cask "webstorm"
