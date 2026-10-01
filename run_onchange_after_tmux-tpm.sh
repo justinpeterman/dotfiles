@@ -29,15 +29,23 @@ else
   git -C "${TPM_DIR}" pull --ff-only --quiet || echo "  (pull skipped)"
 fi
 
+# Everything below needs a live tmux server. `tmux start-server` is not enough:
+# it returns 0 but a server with no sessions exits immediately, so the next
+# command fails with "no server running" and takes the whole apply down with it.
+# Skip instead — plugins install on demand with `prefix + I` inside tmux.
+if ! tmux info >/dev/null 2>&1; then
+  echo "→ No tmux server running; skipping plugin install (use 'prefix + I' inside tmux)."
+  exit 0
+fi
+
 # install_plugins is safe to re-run; it no-ops for already-present plugins.
 #
 # It resolves the install path with `tmux start-server; show-environment -g
-# TMUX_PLUGIN_MANAGER_PATH`, and `start-server` brings up a bare server that has
-# sourced no config — so the variable tmux.conf sets is not there yet and the
-# install aborts. Seed it on the server first. Harmless if a server is already
-# running: sourcing tmux.conf sets the same value.
+# TMUX_PLUGIN_MANAGER_PATH`, which reads a bare server that has sourced no
+# config — so the variable tmux.conf sets is not there yet and the install
+# aborts. Seed it on the server first. Harmless when the running server already
+# sourced tmux.conf: that sets the same value.
 echo "→ Installing tmux plugins..."
-tmux start-server
 tmux set-environment -g TMUX_PLUGIN_MANAGER_PATH "${PLUGIN_DIR}/"
 "${TPM_DIR}/bin/install_plugins" || echo "  (install reported an issue; run 'prefix + I' inside tmux)"
 
