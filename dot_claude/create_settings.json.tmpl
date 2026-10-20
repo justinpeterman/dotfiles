@@ -1,0 +1,43 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm test)"
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "/opt/homebrew/bin/python3 {{ .chezmoi.homeDir }}/.claude/statusline.py",
+    "padding": 0,
+    "refreshInterval": 60
+  },
+  "enabledPlugins": {
+    "agent-skills@addy-agent-skills": true,
+    "codex@openai-codex": true,
+    "modern-web-guidance@googlechrome": true
+  },
+  "extraKnownMarketplaces": {
+    "googlechrome": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/GoogleChrome/modern-web-guidance.git"
+      }
+    }
+  },
+  "effortLevel": "high",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "medium"
+    }
+  },
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  },
+  "skipDangerousModePermissionPrompt": {{ if eq .machine_type "server" }}false{{ else }}true{{ end }},
+  "agentPushNotifEnabled": true,
+  "voiceEnabled": true
+}

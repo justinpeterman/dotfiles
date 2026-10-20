@@ -40,13 +40,9 @@ Two clones of `git@github.com:justinpeterman/dotfiles.git` exist: **`~/workspace
 
 **Always edit dotfiles in `~/workspace/dotfiles` first**, using chezmoi source names (`dot_*`, `*.tmpl`, `executable_*`, `run_onchange_*`). Then commit + push to `main`, and run `chezmoi update` (git pull + apply) to sync `~/.local/share/chezmoi`. **Never** edit `~/.local/share/chezmoi` directly, and don't use `chezmoi edit`/`chezmoi add` — they write to the operational clone and split its history from the canonical repo. If a change ever lands in the operational clone by mistake, relocate it to `~/workspace/dotfiles`, then `git checkout`/`rm` the stray edit in `~/.local/share/chezmoi` and re-pull.
 
-## Keeping `~/.claude/settings.json` synced with its template
+## `~/.claude/settings.json` is create-only
 
-`~/.claude/settings.json` is applied from `dot_claude/settings.json.tmpl`, but the live file can also change outside chezmoi entirely. Left alone, the two quietly diverge, and the next `chezmoi apply` silently reverts the live file back to the stale template.
-
-If I change something that persists to `~/.claude/settings.json`, or a system-reminder reports the file "was modified," check for drift: run `chezmoi diff -- "$HOME/.claude/settings.json"`, update `dot_claude/settings.json.tmpl` to match the live (correct) value, then commit + push + `chezmoi update` as above.
-
-**Exception:** `enabledPlugins` entries owned by `run_onchange_after_claude-plugins.sh` are expected to exist live without being mirrored into the template — that script re-asserts them on every apply. Only sync genuine drift elsewhere in the file.
+`dot_claude/create_settings.json.tmpl` seeds `~/.claude/settings.json` only when the file doesn't exist (new machine). After that, chezmoi never touches it: Claude Code, `/config`, plugin installs, and other tools (e.g. iTerm's `cc-status` hooks) write to it freely, and the live file is the source of truth. Don't sync drift back into the template. Only update the template when a default should change for future new machines; existing machines must be changed live.
 
 # Codex review gate
 The Codex Companion plugin's stop-time review gate (`/codex:setup --enable-review-gate`) is a per-workspace toggle stored in plugin state, not a global setting. Until every workspace has it enabled natively, proactively hold yourself to the same standard everywhere: before ending a turn that made code changes, run `/codex:review` (or otherwise get a Codex review) and address anything it flags, the same way the hook would block on.
