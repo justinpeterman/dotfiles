@@ -15,11 +15,13 @@ MARKETPLACES=(
   # HTTPS avoids depending on a GitHub SSH key during initial bootstrap.
   "https://github.com/openai/codex-plugin-cc.git"
   "https://github.com/addyosmani/agent-skills.git"
+  "https://github.com/GoogleChrome/modern-web-guidance.git"
 )
 # plugin@marketplace ids to install at user scope.
 PLUGINS=(
   "codex@openai-codex"
   "agent-skills@addy-agent-skills"
+  "modern-web-guidance@googlechrome"
 )
 
 if ! command -v claude >/dev/null 2>&1; then
@@ -68,30 +70,42 @@ else
   done
 fi
 
-CODEX_MARKETPLACE="https://github.com/addyosmani/agent-skills.git"
-CODEX_MARKETPLACE_NAME="agent-skills"
-CODEX_PLUGIN="agent-skills@agent-skills"
+# Codex marketplaces as "name|source" (name is what `codex plugin marketplace list` reports).
+CODEX_MARKETPLACES=(
+  "agent-skills|https://github.com/addyosmani/agent-skills.git"
+  "googlechrome|https://github.com/GoogleChrome/modern-web-guidance.git"
+)
+CODEX_PLUGINS=(
+  "agent-skills@agent-skills"
+  "modern-web-guidance@googlechrome"
+)
 
 if ! command -v codex >/dev/null 2>&1; then
   echo "⚠ codex CLI not found on PATH; skipping Codex plugin install"
 else
-  echo "→ Ensuring Codex marketplace..."
+  echo "→ Ensuring Codex marketplaces..."
   codex_markets="$(codex plugin marketplace list --json 2>/dev/null || true)"
-  if printf '%s' "$codex_markets" | grep -qF "\"name\": \"$CODEX_MARKETPLACE_NAME\""; then
-    echo "  ✓ marketplace already present: $CODEX_MARKETPLACE_NAME"
-  else
-    echo "  + adding marketplace: $CODEX_MARKETPLACE"
-    codex plugin marketplace add "$CODEX_MARKETPLACE" || echo "  ⚠ failed to add marketplace (continuing)"
-  fi
+  for entry in "${CODEX_MARKETPLACES[@]}"; do
+    name="${entry%%|*}"
+    src="${entry#*|}"
+    if printf '%s' "$codex_markets" | grep -qF "\"name\": \"$name\""; then
+      echo "  ✓ marketplace already present: $name"
+    else
+      echo "  + adding marketplace: $src"
+      codex plugin marketplace add "$src" || echo "  ⚠ failed to add $src (continuing)"
+    fi
+  done
 
-  echo "→ Ensuring Codex plugin..."
+  echo "→ Ensuring Codex plugins..."
   codex_plugins="$(codex plugin list --json 2>/dev/null || true)"
-  if printf '%s' "$codex_plugins" | grep -qF "\"pluginId\": \"$CODEX_PLUGIN\""; then
-    echo "  ✓ plugin already installed: $CODEX_PLUGIN"
-  else
-    echo "  + installing plugin: $CODEX_PLUGIN"
-    codex plugin add "$CODEX_PLUGIN" || echo "  ⚠ failed to install plugin (continuing)"
-  fi
+  for p in "${CODEX_PLUGINS[@]}"; do
+    if printf '%s' "$codex_plugins" | grep -qF "\"pluginId\": \"$p\""; then
+      echo "  ✓ plugin already installed: $p"
+    else
+      echo "  + installing plugin: $p"
+      codex plugin add "$p" || echo "  ⚠ failed to install $p (continuing)"
+    fi
+  done
 fi
 
 echo "✓ AI coding-agent plugins ensured"
