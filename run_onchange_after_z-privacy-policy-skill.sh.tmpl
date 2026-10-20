@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Provision the privacy-policy skill for both AI coding agents on each machine.
+# Sorted after mise-global-tools so npx is available on first apply.
+set -euo pipefail
+
+if [ -x /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+cd "$HOME"
+echo "→ Installing privacy-policy skill for Claude Code and Codex..."
+mise exec -- npx --yes skillfish add phuryn/pm-skills privacy-policy \
+  --global --agent "Claude Code" --agent Codex --yes
+echo "✓ privacy-policy skill installed"

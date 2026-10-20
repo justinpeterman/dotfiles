@@ -33,6 +33,7 @@ dotfiles/
 │   └── config                                # → ~/.ssh/config (GitHub SSH)
 ├── run_onchange_brew-bundle.sh.tmpl          # Reruns brew bundle when Brewfile* changes
 ├── run_onchange_after_mise-global-tools.sh.tmpl # Reruns `mise install` when dot_config/mise/config.toml changes
+├── run_onchange_after_z-privacy-policy-skill.sh.tmpl # Installs the privacy-policy skill for Claude Code and Codex
 ├── run_once_macos-defaults.sh                  # Applied once, shared across machines
 ├── run_once_after_macos-defaults-server.sh     # Applied once, server-only (after the shared script)
 ├── run_once_after_tailscale-daemon-server.sh   # Server-only: installs tailscaled system daemon + `up --ssh`
