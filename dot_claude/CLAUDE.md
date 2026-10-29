@@ -40,9 +40,14 @@ Two clones of `git@github.com:justinpeterman/dotfiles.git` exist: **`~/workspace
 
 **Always edit dotfiles in `~/workspace/dotfiles` first**, using chezmoi source names (`dot_*`, `*.tmpl`, `executable_*`, `run_onchange_*`). Then commit + push to `main`, and run `chezmoi update` (git pull + apply) to sync `~/.local/share/chezmoi`. **Never** edit `~/.local/share/chezmoi` directly, and don't use `chezmoi edit`/`chezmoi add` — they write to the operational clone and split its history from the canonical repo. If a change ever lands in the operational clone by mistake, relocate it to `~/workspace/dotfiles`, then `git checkout`/`rm` the stray edit in `~/.local/share/chezmoi` and re-pull.
 
-## `~/.claude/settings.json` is create-only
+## `~/.claude/settings.json` is app-owned, except the plugin manifest
 
-`dot_claude/create_settings.json.tmpl` seeds `~/.claude/settings.json` only when the file doesn't exist (new machine). After that, chezmoi never touches it: Claude Code, `/config`, plugin installs, and other tools (e.g. iTerm's `cc-status` hooks) write to it freely, and the live file is the source of truth. Don't sync drift back into the template. Only update the template when a default should change for future new machines; existing machines must be changed live.
+`dot_claude/modify_settings.json` (a chezmoi modify-template) seeds `~/.claude/settings.json` from `.chezmoitemplates/claude-settings-baseline.json` only when the file doesn't exist (new machine). After that, it only merges its plugin manifest — `extraKnownMarketplaces` (with `autoUpdate: true`) and `enabledPlugins` — into the live file on every apply, leaving every other key alone. Claude Code, `/config`, and other tools (e.g. iTerm's `cc-status` hooks) write to the file freely, and the live file is the source of truth for everything else. Don't sync drift back into the baseline; only update it when a default should change for future new machines, and change existing machines live.
+
+- **Adding a Claude plugin:** add its marketplace and `name@marketplace` id to the manifest in `modify_settings.json`. Claude Code clones declared marketplaces and installs enabled plugins in the background at the next session start — no `claude plugin install` needed.
+- **Removing one:** set it to `false` in the manifest; the merge never deletes keys.
+- **Codex** has no declarative equivalent (`~/.codex/config.toml` is app-owned), so its marketplaces, plugins, and MCP servers stay in `run_onchange_after_codex-plugins.sh.tmpl`.
+- **Loose skills** cherry-picked from repos that aren't installed as plugins go through `npx skills` (see `run_onchange_after_z-privacy-policy-skill.sh.tmpl`).
 
 # Codex review gate
 The Codex Companion plugin's stop-time review gate (`/codex:setup --enable-review-gate`) is a per-workspace toggle stored in plugin state, not a global setting. Until every workspace has it enabled natively, proactively hold yourself to the same standard everywhere: before ending a turn that made code changes, run `/codex:review` (or otherwise get a Codex review) and address anything it flags, the same way the hook would block on.

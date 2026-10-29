@@ -1,0 +1,50 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /*
+  ~/.claude/settings.json is owned by Claude Code: /config, plugin toggles, and
+  other tools (e.g. iTerm's cc-status hooks) write to it freely. chezmoi only:
+    - seeds it from .chezmoitemplates/claude-settings-baseline.json when absent
+    - merges in the plugin manifest below on every apply.
+  Claude Code clones declared marketplaces and installs enabled plugins in the
+  background at session start, so this manifest is all a machine needs.
+  To drop a plugin, set it to false rather than deleting the line: this merge
+  only adds/overwrites keys, it never removes them.
+*/ -}}
+{{- $marketplaces := dict
+  "openai-codex" (dict "source" (dict "source" "github" "repo" "openai/codex-plugin-cc"))
+  "addy-agent-skills" (dict "source" (dict "source" "git" "url" "https://github.com/addyosmani/agent-skills.git"))
+  "googlechrome" (dict "source" (dict "source" "git" "url" "https://github.com/GoogleChrome/modern-web-guidance.git"))
+  "chrome-devtools-plugins" (dict "source" (dict "source" "github" "repo" "ChromeDevTools/chrome-devtools-mcp"))
+-}}
+{{- $plugins := dict
+  "codex@openai-codex" true
+  "agent-skills@addy-agent-skills" true
+  "modern-web-guidance@googlechrome" true
+  "chrome-devtools-mcp@chrome-devtools-plugins" true
+-}}
+{{- $seeded := false -}}
+{{- $settings := dict -}}
+{{- if .chezmoi.stdin | trim -}}
+{{-   $settings = fromJson .chezmoi.stdin -}}
+{{- else -}}
+{{-   $settings = includeTemplate "claude-settings-baseline.json" . | fromJson -}}
+{{-   $seeded = true -}}
+{{- end -}}
+{{- $changed := $seeded -}}
+{{- range $name, $entry := $marketplaces -}}
+{{-   $entry = set $entry "autoUpdate" true -}}
+{{-   if not (deepEqual (dig "extraKnownMarketplaces" $name "" $settings) $entry) -}}
+{{-     $settings = setValueAtPath (list "extraKnownMarketplaces" $name) $entry $settings -}}
+{{-     $changed = true -}}
+{{-   end -}}
+{{- end -}}
+{{- range $id, $enabled := $plugins -}}
+{{-   if not (deepEqual (dig "enabledPlugins" $id "" $settings) $enabled) -}}
+{{-     $settings = setValueAtPath (list "enabledPlugins" $id) $enabled $settings -}}
+{{-     $changed = true -}}
+{{-   end -}}
+{{- end -}}
+{{- if $changed -}}
+{{ toPrettyJson "  " $settings }}
+{{ else -}}
+{{ .chezmoi.stdin }}
+{{- end -}}

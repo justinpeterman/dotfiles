@@ -14,19 +14,6 @@
     "padding": 0,
     "refreshInterval": 60
   },
-  "enabledPlugins": {
-    "agent-skills@addy-agent-skills": true,
-    "codex@openai-codex": true,
-    "modern-web-guidance@googlechrome": true
-  },
-  "extraKnownMarketplaces": {
-    "googlechrome": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/GoogleChrome/modern-web-guidance.git"
-      }
-    }
-  },
   "effortLevel": "high",
   "modelSettings": {
     "claude-opus-5-5": {

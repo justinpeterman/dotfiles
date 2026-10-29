@@ -20,8 +20,10 @@ dotfiles/
 ├── Brewfile                                  # Shared essentials (personal + server)
 ├── Brewfile.personal                         # Personal-only packages/apps
 ├── Brewfile.server                           # Server-only packages
+├── .chezmoitemplates/
+│   └── claude-settings-baseline.json         # Seed for a new machine's ~/.claude/settings.json
 ├── dot_claude/
-│   └── settings.json.tmpl                    # → ~/.claude/settings.json (Claude Code config)
+│   └── modify_settings.json                  # Seeds ~/.claude/settings.json; merges in the Claude plugin manifest
 ├── dot_config/
 │   ├── mise/config.toml                      # → ~/.config/mise/config.toml (global mise tools: node, npm: backend CLIs)
 │   └── gh/config.yml                         # → ~/.config/gh/config.yml (GitHub CLI prefs/aliases)
@@ -33,7 +35,8 @@ dotfiles/
 │   └── config                                # → ~/.ssh/config (GitHub SSH)
 ├── run_onchange_brew-bundle.sh.tmpl          # Reruns brew bundle when Brewfile* changes
 ├── run_onchange_after_mise-global-tools.sh.tmpl # Reruns `mise install` when dot_config/mise/config.toml changes
-├── run_onchange_after_z-privacy-policy-skill.sh.tmpl # Installs the privacy-policy skill for Claude Code and Codex
+├── run_onchange_after_codex-plugins.sh.tmpl   # Codex marketplaces, plugins, and MCP servers
+├── run_onchange_after_z-privacy-policy-skill.sh.tmpl # Installs the privacy-policy skill for Claude Code and Codex (npx skills)
 ├── run_once_macos-defaults.sh                  # Applied once, shared across machines
 ├── run_once_after_macos-defaults-server.sh     # Applied once, server-only (after the shared script)
 ├── run_once_after_tailscale-daemon-server.sh   # Server-only: installs tailscaled system daemon + `up --ssh`

@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Ensures Codex marketplaces, plugins, and MCP servers are present on every machine.
+# run_onchange: edit the lists to re-trigger on next apply.
+# Runs `after` file apply so the brew-bundled CLIs are already installed.
+# Claude Code plugins are declared in dot_claude/modify_settings.json instead;
+# Codex has no declarative equivalent, and ~/.codex/config.toml is app-owned.
+set -euo pipefail
+
+# Non-interactive apply (esp. server SSH) may not have Homebrew on PATH yet.
+if [ -x /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+# Codex marketplaces as "name|source" (name is what `codex plugin marketplace list` reports).
+CODEX_MARKETPLACES=(
+  "agent-skills|https://github.com/addyosmani/agent-skills.git"
+  "googlechrome|https://github.com/GoogleChrome/modern-web-guidance.git"
+)
+CODEX_PLUGINS=(
+  "agent-skills@agent-skills"
+  "modern-web-guidance@googlechrome"
+)
+# MCP servers as "name|command..." (no Codex plugin manifest upstream).
+CODEX_MCP_SERVERS=(
+  "chrome-devtools|npx -y chrome-devtools-mcp@latest"
+)
+
+if ! command -v codex >/dev/null 2>&1; then
+  echo "⚠ codex CLI not found on PATH; skipping Codex plugin install"
+  exit 0
+fi
+
+echo "→ Ensuring Codex marketplaces..."
+codex_markets="$(codex plugin marketplace list --json 2>/dev/null || true)"
+for entry in "${CODEX_MARKETPLACES[@]}"; do
+  name="${entry%%|*}"
+  src="${entry#*|}"
+  if printf '%s' "$codex_markets" | grep -qF "\"name\": \"$name\""; then
+    echo "  ✓ marketplace already present: $name"
+  else
+    echo "  + adding marketplace: $src"
+    codex plugin marketplace add "$src" || echo "  ⚠ failed to add $src (continuing)"
+  fi
+done
+
+# Codex marketplace snapshots never refresh on their own.
+echo "→ Refreshing Codex marketplaces..."
+codex plugin marketplace upgrade || echo "  ⚠ marketplace upgrade failed (continuing)"
+
+echo "→ Ensuring Codex plugins..."
+codex_plugins="$(codex plugin list --json 2>/dev/null || true)"
+for p in "${CODEX_PLUGINS[@]}"; do
+  if printf '%s' "$codex_plugins" | grep -qF "\"pluginId\": \"$p\""; then
+    echo "  ✓ plugin already installed: $p"
+  else
+    echo "  + installing plugin: $p"
+    codex plugin add "$p" || echo "  ⚠ failed to install $p (continuing)"
+  fi
+done
+
+echo "→ Ensuring Codex MCP servers..."
+for entry in "${CODEX_MCP_SERVERS[@]}"; do
+  name="${entry%%|*}"
+  read -r -a cmd <<< "${entry#*|}"
+  if codex mcp get "$name" >/dev/null 2>&1; then
+    echo "  ✓ MCP server already present: $name"
+  else
+    echo "  + adding MCP server: $name"
+    codex mcp add "$name" -- "${cmd[@]}" || echo "  ⚠ failed to add MCP server $name (continuing)"
+  fi
+done
+
+echo "✓ Codex plugins ensured"
