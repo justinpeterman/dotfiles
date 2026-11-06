@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Provision Emil Kowalski's design-engineering skills for both AI coding agents.
+# Sorted after mise-global-tools so npx is available on first apply.
+set -euo pipefail
+
+if [ -x /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+cd "$HOME"
+echo "→ Installing emilkowalski/skill skills for Claude Code and Codex..."
+# The repo has no plugin marketplace; '*' takes every skill under skills/.
+mise exec -- npx --yes skills add emilkowalski/skill --skill '*' \
+  --global --agent claude-code --agent codex --yes
+echo "✓ emilkowalski/skill skills installed"
